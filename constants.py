@@ -21,6 +21,7 @@ MOVEMENT_G1 = 'G1'
 MOVEMENT_G = '^(?:G(?:0|1) )\s?(?:([XYZE])(-?\d*\.?\d*))?(?:\s+([XYZE])(-?\d*\.?\d*))?(?:\s+([XYZE])(-?\d*\.?\d*))?(?:\s+([XYZE])(-?\d*\.?\d*))?(?: )*(?:(;)?(.*))$'
 
 # Layer Change
+MACHINE_M1 = '^M1\s+' #signal new layer followed by reset extrusion comments
 #LAYER_CHANGE = '^;\s?(?:feature plane change)'
 #LAYER_Z_HEIGHT = '^;\s?(?:Z_HEIGHT|Z):\s?(\d*\.?\d*)' # Current object layer height including current layer height
 #LAYER_HEIGHT = '^;\s?(?:LAYER_HEIGHT|HEIGHT):\s?(\d*\.?\d*)' # Current layer height

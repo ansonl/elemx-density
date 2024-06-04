@@ -170,6 +170,7 @@ def process(inputFilepath: str, outputFilepath: str):
 
         # check for feature comment
         featureMatch = re.match(FEATURE_TYPE, cl)
+        m1Match = re.match(MACHINE_M1, cl)
         if featureMatch:
           if len(currentPrint.features) > 0:
             currentPrint.features[-1].end = clsp
@@ -183,6 +184,10 @@ def process(inputFilepath: str, outputFilepath: str):
             currentPrint.features = []
           currentPrint.features.append(currentFeature)
 
+          out.write(cl)
+        elif m1Match: #check for M1 new layer/reset extrusion
+          currentPrint.originalPosition.E = 0
+          currentPrint.deltaE = 0
           out.write(cl)
         else:
           #save copy of last original gcode position before reading current line gcode position
@@ -220,6 +225,8 @@ def process(inputFilepath: str, outputFilepath: str):
           # start new infill map
 
       out.write(f';Post Processed with variable density\n')
+
+      print(f"saved new mpf to {outputFilepath}")
 
   except PermissionError as e:
     print(f"Failed to open {e}")
