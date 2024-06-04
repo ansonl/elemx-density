@@ -122,5 +122,5 @@ class Movement:
 
     addComment = f"originalEInc={self.end.E-self.start.E:.5f} adjustedEInc={newEndAbsoluteE-self.start.E:.5f} density={self.boundingBox.density if self.boundingBox else 'N/A'}"
 
-    gcode += f" X{self.end.X:.4f} Y{self.end.Y:.4f} E{self.end.E + ps.deltaE:.5f} {';' if (self.end.comment or self.boundingBox) else ''}{self.end.comment if self.end.comment else ''}{' => ' + addComment if self.boundingBox else ''}"
+    gcode += f" X{self.end.X:.5f} Y{self.end.Y:.4f} E{self.end.E + ps.deltaE:.5f} {';' if (self.end.comment or self.boundingBox) else ''}{self.end.comment if self.end.comment else ''}{' => ' + addComment if self.boundingBox else ''}"
     return gcode

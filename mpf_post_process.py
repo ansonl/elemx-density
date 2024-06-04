@@ -75,14 +75,28 @@ def line_intersection(a, b, c, d):
 def point_distance(p1: Position, p2: Position):
   return (abs(p1.X - p2.X) ** 2 + abs(p1.Y - p2.Y) ** 2) **0.5
 
+#only checks XY
+def point_in_box(p1: Position, boundingBox: BoundingBox):
+  if p1.X > boundingBox.origin.X and p1.X < boundingBox.origin.X + boundingBox.size.X and p1.Y > boundingBox.origin.Y and p1.Y < boundingBox.origin.Y + boundingBox.size.Y: 
+    return True
+  return False
+
 # check if movement is in bounding box and split movement by intersections
 # return array of new movements or false if no intersection
 def boundingBoxSplit(movement: Movement, boundingBox: BoundingBox):
+  newMovements: list[Movement] = []
+
   #intersect Left Right Top Bottom of bounding box
   intersectBBL, intersectBBR, intersectBBT, intersectBBB = False, False, False, False
 
   #currently this only checks if the movement end is in the Z range of the boundingbox
   if movement.end.Z >= boundingBox.origin.Z and movement.end.Z <= boundingBox.origin.Z + boundingBox.size.Z:
+
+    #check if entire movement start and end are in bounding box
+    if point_in_box(movement.start, boundingBox) and point_in_box(movement.end, boundingBox):
+      newMovements.append(Movement(movement.start, movement.end, boundingBox))
+      return newMovements
+
     intersectBBL = line_intersection([movement.start.X,movement.start.Y], [movement.end.X,movement.end.Y], [boundingBox.origin.X, boundingBox.origin.Y], [boundingBox.origin.X, boundingBox.origin.Y + boundingBox.size.Y])
     intersectBBR = line_intersection([movement.start.X,movement.start.Y], [movement.end.X,movement.end.Y], [boundingBox.origin.X + boundingBox.size.X, boundingBox.origin.Y], [boundingBox.origin.X + boundingBox.size.X, boundingBox.origin.Y + boundingBox.size.Y])
     intersectBBT = line_intersection([movement.start.X,movement.start.Y], [movement.end.X,movement.end.Y], [boundingBox.origin.X, boundingBox.origin.Y + boundingBox.size.Y], [boundingBox.origin.X + boundingBox.size.X, boundingBox.origin.Y + boundingBox.size.Y])
@@ -106,8 +120,6 @@ def boundingBoxSplit(movement: Movement, boundingBox: BoundingBox):
   # Return False if no intersections
   if intersect1 is False:
     return False
-  
-  newMovements: list[Movement] = []
 
   # determine which intersection is first on the movement line
   if intersect2 and point_distance(intersect2, movement.start) < point_distance(intersect1, movement.start):
@@ -121,7 +133,7 @@ def boundingBoxSplit(movement: Movement, boundingBox: BoundingBox):
   intersect1.E += originalStartEndEDistance * point_distance(movement.start, intersect1)/originalStartEndPointDistance # add the relative E distance
 
   if intersect2 is False:
-    if movement.start.X > boundingBox.origin.X and movement.start.X < boundingBox.origin.X + boundingBox.size.X and movement.start.Y > boundingBox.origin.Y and movement.start.Y < boundingBox.origin.Y + boundingBox.size.Y: # start is in box
+    if point_in_box(movement.start, boundingBox): # start is in box
       newMovements.append(Movement(movement.start, intersect1, boundingBox))
       newMovements.append(Movement(intersect1, movement.end, None))
     else:
@@ -165,7 +177,7 @@ def process(inputFilepath: str, outputFilepath: str):
         clsp = f.tell() - len(cl) - (len(lineEnding)-1) # read line start position
         #cp = f.tell() # position is start of next line after read line. We define in lower scope function as needed for retention.
 
-        if f.tell() == 30440:
+        if f.tell() == 215460:
           0==0
 
         # check for feature comment
