@@ -5,7 +5,7 @@ from constants import *
 from line_ending import *
 
 bbOrigin = Position()
-bbOrigin.X, bbOrigin.Y, bbOrigin.Z = 0, -5, 0
+bbOrigin.X, bbOrigin.Y, bbOrigin.Z = 0, -5, 0.5
 bbSize = Position()
 bbSize.X, bbSize.Y, bbSize.Z = 25, 10, 8
 testBoundingBox = BoundingBox(origin = bbOrigin, size=bbSize, density=0.5)

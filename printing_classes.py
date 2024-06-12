@@ -9,11 +9,11 @@ class StatusQueueItem:
 
 # Position
 class Position:
-  def __init__(self):
-    self.X: float = 0
-    self.Y: float = 0
-    self.Z: float = 0
-    self.E: float = 0
+  def __init__(self, x=0, y=0, z=0, e=0):
+    self.X: float = x
+    self.Y: float = y
+    self.Z: float = z
+    self.E: float = e
     self.F: float = 0
     self.FTravel: float = 0
     self.comment: str = None
@@ -117,10 +117,21 @@ class Movement:
     if self.boundingBox:
       newEndRelativeE = (self.end.E - self.start.E) * self.boundingBox.density
       newEndAbsoluteE = self.start.E + newEndRelativeE
-    movementDeltaE = newEndAbsoluteE - self.end.E #negative deltaE if newEndE is lower than original endE
-    ps.deltaE += movementDeltaE #add delta E from this movement to the total delta E
+    if ps:
+      movementDeltaE = newEndAbsoluteE - self.end.E #negative deltaE if newEndE is lower than original endE
+      ps.deltaE += movementDeltaE #add delta E from this movement to the total delta E
 
     addComment = f"originalEInc={self.end.E-self.start.E:.5f} adjustedEInc={newEndAbsoluteE-self.start.E:.5f} density={self.boundingBox.density if self.boundingBox else 'N/A'}"
 
-    gcode += f" X{self.end.X:.5f} Y{self.end.Y:.4f} E{self.end.E + ps.deltaE:.5f} {';' if (self.end.comment or self.boundingBox) else ''}{self.end.comment if self.end.comment else ''}{' => ' + addComment if self.boundingBox else ''}"
+    gcode += f" X{self.end.X:.5f} Y{self.end.Y:.4f} E{(self.end.E + ps.deltaE if ps else self.end.E):.5f} {';' if (self.end.comment or self.boundingBox) else ''}{self.end.comment if self.end.comment else ''}{' => ' + addComment if self.boundingBox else f'; EInc={self.end.E-self.start.E}'}"
+    return gcode
+  
+  def travelGcode(self):
+    gcode = MOVEMENT_G0
+    gcode += f" X{self.end.X:.5f} Y{self.end.Y:.4f} ;Travel"
+    return gcode
+  
+  def extrudeOnlyGcode(self):
+    gcode = MOVEMENT_G1
+    gcode += f" E{self.end.E} ; EInc={self.end.E-self.start.E}"
     return gcode
