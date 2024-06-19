@@ -21,6 +21,9 @@ MOVEMENT_G0 = 'G0'
 MOVEMENT_G1 = 'G1'
 MOVEMENT_G = '^(?:G(?:0|1) )\s?(?:([XYZE])(-?\d*\.?\d*))?(?:\s+([XYZE])(-?\d*\.?\d*))?(?:\s+([XYZE])(-?\d*\.?\d*))?(?:\s+([XYZE])(-?\d*\.?\d*))?(?: )*(?:(;)?(.*))$'
 
+# Dwell
+DWELL_G4 = 'G4 F'
+
 # Layer Change
 MACHINE_M1 = '^M1\s+' #signal new layer followed by reset extrusion comments
 #LAYER_CHANGE = '^;\s?(?:feature plane change)'

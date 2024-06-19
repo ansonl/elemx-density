@@ -5,9 +5,9 @@ from constants import *
 from line_ending import *
 
 bbOrigin = Position()
-bbOrigin.X, bbOrigin.Y, bbOrigin.Z = -25, -5, 0
+bbOrigin.X, bbOrigin.Y, bbOrigin.Z = -25, -25, 0
 bbSize = Position()
-bbSize.X, bbSize.Y, bbSize.Z = 50, 10, 0
+bbSize.X, bbSize.Y, bbSize.Z = 50, 50, 0
 testBoundingBox = BoundingBox(origin = bbOrigin, size=bbSize, density=0.5)
 
 currentE = 0
@@ -23,6 +23,9 @@ tickLength = 2
 
 #droplet
 dropletWidth = 0.510
+
+#overlaps
+overlaps = [1, 3/4, 1/2, 1/3, 1/4, 1/5, 1/6, 1/7]
 
 PULSE_OFF='PRIO_OFF'
 PULSE_ON='PRIO_ON'
@@ -49,18 +52,18 @@ def process(outputFilepath: str):
 
       # print tick marks
 
-      x = bbOrigin.X + insetX
-      while x < bbOrigin.X+bbSize.X:
+      xStart = bbOrigin.X + insetX
+      while xStart < bbOrigin.X+bbSize.X:
 
-        startLower = Position(x, bbOrigin.Y)
+        startLower = Position(xStart, bbOrigin.Y)
         startLower.E = currentE
-        endLower = Position(x, startLower.Y + tickLength)
+        endLower = Position(xStart, startLower.Y + tickLength)
         currentE += tickLength*movementEFor1mm
         endLower.E = currentE
 
-        startUpper = Position(x, bbOrigin.Y+bbSize.Y)
+        startUpper = Position(xStart, bbOrigin.Y+bbSize.Y)
         startUpper.E = currentE
-        endUpper = Position(x, startUpper.Y - tickLength)
+        endUpper = Position(xStart, startUpper.Y - tickLength)
         currentE += tickLength*movementEFor1mm
         endUpper.E = currentE
         
@@ -85,75 +88,46 @@ def process(outputFilepath: str):
         out.write(f"{PULSE_ON}\n")
         out.write(f"{Movement(startPos=startUpper, endPos=endUpper).adjustE(ps=None)}\n")
 
-        x += spacingX
+        xStart += spacingX
       
       # droplet tests
-      testType = 0
-      testIteration = 0
-      y = bbOrigin.Y + insetY
-      while y <= bbOrigin.Y+bbSize.Y:
-        x = bbOrigin.X + insetX
-        while x < bbOrigin.X+bbSize.X:
+      yIteration = 0
+      yStart = bbOrigin.Y + insetY
+      while yStart + yIteration * spacingY <= bbOrigin.Y+bbSize.Y: #increase dwell time with Y
+        xStart = bbOrigin.X + insetX
+        xIteration = 0
+        while xStart + xIteration * spacingX < bbOrigin.X+bbSize.X: #decrease droplet overlap with X
 
-          if testType == 0:
-            multiplier = 2*testIteration if testIteration > 0 else 1
-            dropletStart = Position(x, y)
+          dropletNumber = 0
+          while dropletNumber < 10:
+
+            dropletStart = Position(xStart + xIteration*spacingX + dropletWidth*dropletNumber - overlaps[xIteration]*dropletWidth*dropletNumber, yStart + yIteration * spacingY)
             dropletStart.E = currentE
-            currentE += dropletWidth*movementEFor1mm*multiplier
-            dropletEnd = Position(x, y)
+            currentE += dropletWidth*movementEFor1mm
+            dropletEnd = Position(xStart + xIteration * spacingX, yStart + yIteration * spacingY)
             dropletEnd.E = currentE
 
-            status = f"Travel to droplet {dropletStart.X},{dropletStart.Y}"
+            status = f"Travel to droplet no. {dropletNumber} {dropletStart.X},{dropletStart.Y}"
             out.write(f";{status}\n")
             out.write(f"{PULSE_OFF}\n")
             out.write(f"{Movement(startPos=None, endPos=dropletStart).travelGcode()}\n")
 
-            status = f"Extrude droplet {dropletStart.X},{dropletStart.Y} with multiplier {multiplier}"
+            status = f"Dwell {xIteration*2/10} seconds"
+            out.write(f";{status}\n")
+            out.write(f"{DWELL_G4}{xIteration*2/10:.5f}\n")
+
+            status = f"Extrude droplet no. {dropletNumber} {dropletStart.X},{dropletStart.Y} with overlap {overlaps[xIteration]}"
             out.write(f";{status}\n")
             out.write(f"{PULSE_ON}\n")
             out.write(f"{Movement(startPos=dropletStart, endPos=dropletEnd).extrudeOnlyGcode()}\n")
-
-          elif testType == 1:
-
-            lineLength = 4
-
-            if testIteration <= 3: 
-              multiplier = 2*testIteration if testIteration > 0 else 1
-            else:
-              multiplier = 2*(testIteration-3)
-
-            dropletStart = Position(x, y)
-            dropletStart.E = currentE
-            currentE += lineLength*movementEFor1mm*multiplier
-            dropletEnd = Position(x+lineLength, y)
-            dropletEnd.E = currentE
-
-            if testIteration > 3: #reverse movement extrusion
-              currentE += lineLength*movementEFor1mm*multiplier
-            dropletEnd2 = Position(x, y)
-            dropletEnd2.E = currentE
-
-            status = f"Travel to droplet {dropletStart.X},{dropletStart.Y}"
-            out.write(f";{status}\n")
             out.write(f"{PULSE_OFF}\n")
-            out.write(f"{Movement(startPos=None, endPos=dropletStart).travelGcode()}\n")
 
-            status = f"Extrude droplet {dropletEnd.X},{dropletEnd.Y} with multiplier {multiplier}"
-            out.write(f";{status}\n")
-            out.write(f"{PULSE_ON}\n")
-            out.write(f"{Movement(startPos=dropletStart, endPos=dropletEnd).adjustE(ps=None)}\n")
+            
 
-            if testIteration > 3: #reverse movement extrusion
-              status = f"Extrude droplet {dropletEnd2.X},{dropletEnd2.Y} with multiplier {multiplier}"
-              out.write(f";{status}\n")
-              out.write(f"{Movement(startPos=dropletEnd, endPos=dropletEnd2).adjustE(ps=None)}\n")
+            dropletNumber += 1
 
-          x += spacingX
-          testIteration += 1
-          
-        y += spacingY
-        testType += 1
-        testIteration = 0
+          xIteration += 1
+        yIteration += 1
 
 
   except PermissionError as e:
