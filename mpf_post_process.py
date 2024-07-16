@@ -11,6 +11,28 @@ bbSize = Position()
 bbSize.X, bbSize.Y, bbSize.Z = 40, 50, 8
 testBoundingBox = BoundingBox(origin = bbOrigin, size=bbSize, density=0.1)
 
+# split movement into individual droplets
+def splitMovementToDroplets(m: Movement):
+  x_delta = m.end.X-m.start.X
+  y_delta = m.end.Y-m.start.Y
+
+  cartesianDistance = math.sqrt(x_delta**2 + y_delta**2)
+  dropletCount = cartesianDistance / (DROPLET_WIDTH * DROPLET_OVERLAP_PERC)
+
+  segment_x_delta = x_delta / dropletCount
+  segment_y_delta = y_delta / dropletCount
+
+  newDroplets: list[Movement]= []
+
+  for i in range(0, math.ceil(dropletCount)):
+    start = m.start
+    start.X += segment_x_delta * (i+0.5)
+    start.Y += segment_y_delta * (i+0.5)
+    end = start
+    end.E = 
+    nm = Movement(startPos=start, endPos=end, boundingBox=m.boundingBox)
+
+  
 # Update position state
 def checkAndUpdatePosition(cl: str, pp: Position):
   #clear last comment
@@ -102,9 +124,12 @@ def process(inputFilepath: str, outputFilepath: str):
           
           if currentFeature.featureType == INFILL:
             currentPrint.infillMovementQueue = []
-          else:
+          elif currentPrint.infillMovementQueue:
             #process all queued infill moves
-            0==0
+            for nm in currentPrint.infillMovementQueue:
+              movementGcode = nm.extrudeAndTravelGcode(ps=currentPrint)
+              out.write(f"{movementGcode}\n")
+            currentPrint.infillMovementQueue = []
 
           if currentFeature.featureType == LAYER_CHANGE:
             print(f"starting new layer")
@@ -136,12 +161,11 @@ def process(inputFilepath: str, outputFilepath: str):
 
               if boundingBoxSplitMovements:
                 newMovements = []
-                currentPrint.infillMovementQueue.append(boundingBoxSplitMovements)
-                #process infill movements that intersect boundingbox in batch once another feature type is found
-
                 for nm in boundingBoxSplitMovements:
-                  movementGcode = nm.extrudeAndTravelGcode(ps=currentPrint)
-                  out.write(f"{movementGcode}\n")
+                  currentPrint.infillMovementQueue.append(nm)
+                  #process infill movements that intersect boundingbox in batch once another feature type is found
+                out.write(f"queued infill movement\n")
+
             # write out unbroken up movements
             for nm in newMovements:
               movementGcode = nm.extrudeAndTravelGcode(ps=currentPrint)

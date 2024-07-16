@@ -119,6 +119,7 @@ class ReplacementColorAtHeight:
 class Movement:
   # Extrusion amount is based on start and end position E.
   # For travel and extrude-only movements, X,Y location only uses end position.
+  # Droplet is an extrude-only movement.
 
   def __init__(self, startPos: Position, endPos: Position, boundingBox: BoundingBox = None):
     self.start: Position = startPos #original gcode start
