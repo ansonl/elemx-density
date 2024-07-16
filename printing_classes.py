@@ -24,6 +24,18 @@ class BoundingBox:
     self.origin = origin
     self.size = size
     self.density = density
+    self.dropletOverlap = 0.5
+    self.dropletRaster = None
+
+  def initializeDropletRaster(self):
+    self.dropletRaster = [[[0 for _ in range(0, 1+ self.size.X/(DROPLET_WIDTH*self.dropletOverlap))] for _ in range(0, 1+ self.size.Y/(DROPLET_WIDTH*self.dropletOverlap))] for _ in range(0,2)]
+
+  def freeDropletRaster(self):
+    self.dropletRaster = None
+
+  # Return number of layers needed to stack to together to get to the target density (going up)
+  def numLayersToTargetDensity(self, targetDensity: float):
+    return (targetDensity - self.density) / self.density
 
 # State of current Print FILE
 class PrintState:
@@ -36,7 +48,8 @@ class PrintState:
     self.lastFeature: Feature = None
     self.prevLayerLastFeature: Feature = None
 
-    
+    # Infill movements read in but not written out
+    self.infillMovementQueue: list[Movement] = None
 
     # Movement info
     self.originalPosition: Position = Position() 
@@ -104,6 +117,9 @@ class ReplacementColorAtHeight:
     
 # Movements
 class Movement:
+  # Extrusion amount is based on start and end position E.
+  # For travel and extrude-only movements, X,Y location only uses end position.
+
   def __init__(self, startPos: Position, endPos: Position, boundingBox: BoundingBox = None):
     self.start: Position = startPos #original gcode start
     self.end: Position = endPos #original gcode end
@@ -111,7 +127,7 @@ class Movement:
   
   # return gcode with adjusted E and update PrintState.deltaE\
   # expects Movement E value to be the full original density value for the length of the movement
-  def adjustE(self, ps: PrintState):
+  def extrudeAndTravelGcode(self, ps: PrintState):
     gcode = MOVEMENT_G1
     newEndAbsoluteE = self.end.E
     if self.boundingBox:
@@ -123,15 +139,22 @@ class Movement:
 
     addComment = f"originalEInc={self.end.E-self.start.E:.5f} adjustedEInc={newEndAbsoluteE-self.start.E:.5f} density={self.boundingBox.density if self.boundingBox else 'N/A'}"
 
-    gcode += f" X{self.end.X:.5f} Y{self.end.Y:.4f} E{(self.end.E + ps.deltaE if ps else self.end.E):.5f} {';' if (self.end.comment or self.boundingBox) else ''}{self.end.comment if self.end.comment else ''}{' => ' + addComment if self.boundingBox else f'; EInc={self.end.E-self.start.E}'}"
+    gcode += f" X{self.end.X:.5f} Y{self.end.Y:.4f} E{(self.end.E + ps.deltaE if ps else self.end.E):.5f}"
+    
+    gcode += f"{' ;' if (self.end.comment or self.boundingBox) else ''}{self.end.comment if self.end.comment else ''}{' => ' + addComment if self.boundingBox else f'; EInc={self.end.E-self.start.E}'}"
     return gcode
   
-  def travelGcode(self):
+  def travelGcodeToStart(self):
     gcode = MOVEMENT_G0
-    gcode += f" X{self.end.X:.5f} Y{self.end.Y:.4f} ;Travel"
+    gcode += f" X{self.start.X:.5f} Y{self.start.Y:.4f} ;Travel to start"
+    return gcode
+
+  def travelGcodeToEnd(self):
+    gcode = MOVEMENT_G0
+    gcode += f" X{self.end.X:.5f} Y{self.end.Y:.4f} ;Travel to end"
     return gcode
   
-  def extrudeOnlyGcode(self):
+  def extrudeOnlyGcode(self, ps: PrintState):
     gcode = MOVEMENT_G1
-    gcode += f" E{self.end.E} ; EInc={self.end.E-self.start.E}"
+    gcode += f" E{(self.end.E + ps.deltaE if ps else self.end.E):.5f} ; EInc={self.end.E-self.start.E}"
     return gcode

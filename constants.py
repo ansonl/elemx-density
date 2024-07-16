@@ -35,3 +35,6 @@ FEATURE_TYPE = ';\s?(?:feature)\s?(.*)'
 LAYER_CHANGE = 'plane change'
 TRAVEL = 'travel'
 INFILL = 'fill'
+
+#DROPLET
+DROPLET_WIDTH = 0.510 #mm
