@@ -23,19 +23,26 @@ class BoundingBox:
   def __init__(self, origin: Position, size: Position, density: float = 1):
     self.origin = origin
     self.size = size
-    self.density = density
-    self.dropletOverlap = 0.5
-    self.dropletRaster = None
+    self.density: float = density
+    self.dropletOverlap = 0.5 #percentage of droplet width
+    self.dropletRaster: list[None|list[list[int]]] = None #[last|current][x][y]
+
+  def initializeDropletRasterLayer(self):
+    return [[0 for _ in range(0, 1+ self.size.X/(DROPLET_WIDTH*self.dropletOverlap))] for _ in range(0, 1+ self.size.Y/(DROPLET_WIDTH*self.dropletOverlap))]
 
   def initializeDropletRaster(self):
-    self.dropletRaster = [[[0 for _ in range(0, 1+ self.size.X/(DROPLET_WIDTH*self.dropletOverlap))] for _ in range(0, 1+ self.size.Y/(DROPLET_WIDTH*self.dropletOverlap))] for _ in range(0,2)]
+    self.dropletRaster = [None, self.initializeDropletRasterLayer()]
 
   def freeDropletRaster(self):
     self.dropletRaster = None
 
-  # Return number of layers needed to stack to together to get to the target density (going up)
+  def advanceDropletRasterNextLayer(self):
+    self.dropletRaster[0] = self.dropletRaster[1]
+    self.dropletRaster[1] = self.initializeDropletRasterLayer()
+
+  # Return number of layers needed to stack to together to get to the target density (going up). Start density is first layer. Target density is last layer.
   def numLayersToTargetDensity(self, targetDensity: float):
-    return (targetDensity - self.density) / self.density
+    return targetDensity / self.density
 
 # State of current Print FILE
 class PrintState:
@@ -50,6 +57,11 @@ class PrintState:
 
     # Infill movements read in but not written out
     self.infillMovementQueue: list[Movement] = None
+    self.infillMovementQueueStartPosition: Position = None
+
+    # Infill stats
+    self.infillDropletsNeededForDensity: int = 0
+    self.infillDropletsSupported: int = 0
 
     # Movement info
     self.originalPosition: Position = Position() 
@@ -125,6 +137,11 @@ class Movement:
     self.start: Position = startPos #original gcode start
     self.end: Position = endPos #original gcode end
     self.boundingBox: BoundingBox = boundingBox
+    self.dropletMovements: list[Movement] = None
+
+  # Return if this Movement is actually a Droplet (extrude only move)
+  def isDroplet(self):
+    return (self.start.X == self.end.X) and (self.start.Y == self.end.Y)
   
   # return gcode with adjusted E and update PrintState.deltaE\
   # expects Movement E value to be the full original density value for the length of the movement
