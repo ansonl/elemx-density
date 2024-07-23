@@ -15,37 +15,43 @@ testBoundingBox = BoundingBox(origin = bbOrigin, size=bbSize, density=0.1)
 # infill first pass planning
 def getInfillRequirements(imq: list[Movement], ps: PrintState):
   for m in imq:
-    m.dropletMovements = splitMovementToDroplets(m)
+    if m.boundingBox:
+      m.dropletMovements = splitMovementToDroplets(m)
 
-    ps.infillDropletsNeededForDensity += len(reduceDropletsToDensity(droplets=m.dropletMovements, density=m.boundingBox.density))
+      ps.infillModifiedDropletsOriginal += len(m.dropletMovements)
+      ps.infillModifiedDropletsNeededForDensity += len(reduceDropletsToDensity(droplets=m.dropletMovements, density=m.boundingBox.density))
 
 # infill 
 def placeInfill(imq: list[Movement], ps: PrintState):
   for m in imq:
     if m.boundingBox: # check if movement needs to be modified because it is in bounding box
+      if m.boundingBox.dropletRaster == None:
+        m.boundingBox.initializeDropletRaster()
+
       if m.boundingBox.dropletRaster[0] == None: #initial layer, reduce and space out drops
         reducedDroplets = reduceDropletsToDensity(droplets=m.dropletMovements, density=m.boundingBox.density)
-        ps.infillDropletsNeededForDensity -= len(reducedDroplets)
+        ps.infillModifiedDropletsNeededForDensity -= len(reducedDroplets)
         m.dropletMovements = reducedDroplets
         for d in reducedDroplets:
           fillBBDropletRasterForDroplet(bb=m.boundingBox, droplet=d)
       else: # not initial layer, place drops on supported area
         ##TODO: implement
         reducedDroplets = reduceDropletsToDensity(droplets=m.dropletMovements, density=m.boundingBox.density)
-        ps.infillDropletsNeededForDensity -= len(reducedDroplets)
+        ps.infillModifiedDropletsNeededForDensity -= len(reducedDroplets)
         m.dropletMovements = reducedDroplets
         for d in reducedDroplets:
           fillBBDropletRasterForDroplet(bb=m.boundingBox, droplet=d)
 
 # infill
 def processInfillMovementQueue(imq: list[Movement], ps: PrintState):
-  ps.infillDropletsNeededForDensity = 0
+  ps.infillModifiedDropletsOriginal = 0
+  ps.infillModifiedDropletsNeededForDensity = 0
 
   getInfillRequirements(imq, ps)
-  print(f"infill on layer height {ps.layerHeight} requires {ps.infillDropletsNeededForDensity} droplets for density")
+  print(f"infill on layer height {ps.layerHeight} requires {ps.infillModifiedDropletsNeededForDensity}/{ps.infillModifiedDropletsOriginal} droplets for density")
   print(f"placing infill")
   placeInfill(imq=imq, ps=ps)
-  print(f"infill on layer height {ps.layerHeight} placed and still requires {ps.infillDropletsNeededForDensity} droplets")
+  print(f"infill on layer height {ps.layerHeight} placed and still requires {ps.infillModifiedDropletsNeededForDensity} droplets")
 
 # Update position state
 def checkAndUpdatePosition(cl: str, pp: Position):
@@ -138,38 +144,49 @@ def process(inputFilepath: str, outputFilepath: str):
           
           if currentFeature.featureType == INFILL:
             currentPrint.infillMovementQueue = []
-            currentPrint.infillMovementQueueStartPosition = copy.copy(currentPrint.originalPosition) #increment this as we write out the queue. This will be the tail position when processing
+            currentPrint.infillMovementQueueOriginalStartPosition = copy.copy(currentPrint.originalPosition) #save original position at queue start
           elif currentPrint.infillMovementQueue:
             #process all queued infill moves
             processInfillMovementQueue(imq=currentPrint.infillMovementQueue, ps=currentPrint)
 
+            #increment this as we write out the queue. This will be the tail position when processing
+            queueStartPosition = copy.copy(currentPrint.infillMovementQueueOriginalStartPosition)
+            queueStartPosition.E += currentPrint.deltaE #apply deltaE now since we will set and print movement E in this loop
+
             # adjust E values
             def adjustE(m: Movement):
-              # Get relative E movement
-              dropletRelativeE = d.end.E - d.start.E 
+              nonlocal queueStartPosition
 
-              # Set start to the last tracked queue position
-              d.start.E = currentPrint.infillMovementQueueStartPosition.E
-              d.end.E = d.start.E + dropletRelativeE
+              m.adjustE(startE=queueStartPosition.E)
 
-              # update tracked position (will be start position of the next move)
-              currentPrint.infillMovementQueueStartPosition = d.end
+              #track end position as start position of next move
+              queueStartPosition = m.end
+
+              #track original position
+              currentPrint.infillMovementQueueOriginalStartPosition.E += m.end.E - m.start.E
+              
               
             # write out gcode for movement
-            def writeTravelAndExtrude(m: Movement):
+            def writeDroplet(m: Movement):
               out.write(f"{m.travelGcodeToEnd()}\n")
               out.write(f"{m.extrudeOnlyGcode()}\n")
+
+            def writeAdjustedMove(m: Movement):
+              out.write(f"{m.travelGcodeToStart()}\n")
+              out.write(f"{m.gcode(adjustE=False)}\n")
+
+            out.write(f"write queued infill moves\n")
 
             for m in currentPrint.infillMovementQueue:
               if m.dropletMovements: 
                 for d in m.dropletMovements:
                   adjustE(m=d)
-                  writeTravelAndExtrude(m=d)
+                  writeDroplet(m=d)
               else:
-                adjustE(m=d)
-                writeTravelAndExtrude(m=d)
+                adjustE(m=m)
+                writeAdjustedMove(m=m)
 
-            currentPrint.deltaE += currentPrint.infillMovementQueueStartPosition - currentPrint.originalPosition.E
+            currentPrint.deltaE += currentPrint.infillMovementQueueOriginalStartPosition.E - currentPrint.originalPosition.E
             '''
             # print out original movements
             for nm in currentPrint.infillMovementQueue:
@@ -211,22 +228,25 @@ def process(inputFilepath: str, outputFilepath: str):
             if currentFeature and currentFeature.featureType == INFILL: #if movement is infill, check for boundingbox intersect
               boundingBoxSplitMovements = boundingBoxSplit(currentMovement, testBoundingBox)
 
+              if boundingBoxSplitMovements and len(boundingBoxSplitMovements) > 1:
+                0==0
+
               if boundingBoxSplitMovements:
                 newMovements = []
                 for nm in boundingBoxSplitMovements:
                   currentPrint.infillMovementQueue.append(nm)
                   #process infill movements that intersect boundingbox in batch once another feature type is found
-                out.write(f"queued infill movement\n")
+                out.write(f"queued 1 => {len(boundingBoxSplitMovements)} infill movement\n")
 
             # write out unbroken up movements
             for nm in newMovements:
-              movementGcode = nm.extrudeAndTravelGcode(ps=currentPrint)
+              movementGcode = nm.gcode(adjustE=True, deltaE=currentPrint.deltaE)
               out.write(f"{movementGcode}\n")
                 
           else:
             out.write(cl)
           
-          print(f.tell())
+          #print(f.tell())
           
           # start new infill map
 

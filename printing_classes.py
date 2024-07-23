@@ -1,4 +1,4 @@
-import enum
+import enum, math
 from constants import *
 
 class StatusQueueItem:
@@ -28,7 +28,7 @@ class BoundingBox:
     self.dropletRaster: list[None|list[list[int]]] = None #[last|current][x][y]
 
   def initializeDropletRasterLayer(self):
-    return [[0 for _ in range(0, 1+ self.size.X/(DROPLET_WIDTH*self.dropletOverlap))] for _ in range(0, 1+ self.size.Y/(DROPLET_WIDTH*self.dropletOverlap))]
+    return [[0 for _ in range(0, 1 + math.ceil(self.size.Y/(DROPLET_WIDTH*self.dropletOverlap)))] for _ in range(0, 1 + math.ceil(self.size.X/(DROPLET_WIDTH*self.dropletOverlap)))]
 
   def initializeDropletRaster(self):
     self.dropletRaster = [None, self.initializeDropletRasterLayer()]
@@ -37,8 +37,9 @@ class BoundingBox:
     self.dropletRaster = None
 
   def advanceDropletRasterNextLayer(self):
-    self.dropletRaster[0] = self.dropletRaster[1]
-    self.dropletRaster[1] = self.initializeDropletRasterLayer()
+    if self.dropletRaster:
+      self.dropletRaster[0] = self.dropletRaster[1]
+      self.dropletRaster[1] = self.initializeDropletRasterLayer()
 
   # Return number of layers needed to stack to together to get to the target density (going up). Start density is first layer. Target density is last layer.
   def numLayersToTargetDensity(self, targetDensity: float):
@@ -57,11 +58,12 @@ class PrintState:
 
     # Infill movements read in but not written out
     self.infillMovementQueue: list[Movement] = None
-    self.infillMovementQueueStartPosition: Position = None
+    self.infillMovementQueueOriginalStartPosition: Position = None
 
-    # Infill stats
-    self.infillDropletsNeededForDensity: int = 0
-    self.infillDropletsSupported: int = 0
+    # Infill modified droplet stats
+    self.infillModifiedDropletsOriginal: int = 0
+    self.infillModifiedDropletsNeededForDensity: int = 0
+    self.infillModifiedDropletsSupported: int = 0
 
     # Movement info
     self.originalPosition: Position = Position() 
@@ -143,23 +145,21 @@ class Movement:
   def isDroplet(self):
     return (self.start.X == self.end.X) and (self.start.Y == self.end.Y)
   
-  # return gcode with adjusted E and update PrintState.deltaE\
-  # expects Movement E value to be the full original density value for the length of the movement
-  def extrudeAndTravelGcode(self, ps: PrintState):
+  def adjustE(self, startE: float):
+    # Get relative E movement
+    relativeE = self.end.E - self.start.E 
+
+    # Set start to the last tracked queue position
+    self.start.E = startE
+    self.end.E = self.start.E + relativeE
+
+  # return gcode and adjustE if specified
+  def gcode(self, adjustE: bool = False, deltaE: float = None):
     gcode = MOVEMENT_G1
-    newEndAbsoluteE = self.end.E
-    if self.boundingBox:
-      newEndRelativeE = (self.end.E - self.start.E) * self.boundingBox.density
-      newEndAbsoluteE = self.start.E + newEndRelativeE
-    if ps:
-      movementDeltaE = newEndAbsoluteE - self.end.E #negative deltaE if newEndE is lower than original endE
-      ps.deltaE += movementDeltaE #add delta E from this movement to the total delta E
 
-    addComment = f"originalEInc={self.end.E-self.start.E:.5f} adjustedEInc={newEndAbsoluteE-self.start.E:.5f} density={self.boundingBox.density if self.boundingBox else 'N/A'}"
-
-    gcode += f" X{self.end.X:.5f} Y{self.end.Y:.4f} E{(self.end.E + ps.deltaE if ps else self.end.E):.5f}"
+    gcode += f" X{self.end.X:.5f} Y{self.end.Y:.4f} E{(self.end.E + deltaE if adjustE else self.end.E):.5f}"
     
-    gcode += f"{' ;' if (self.end.comment or self.boundingBox) else ''}{self.end.comment if self.end.comment else ''}{' => ' + addComment if self.boundingBox else f'; EInc={self.end.E-self.start.E}'}"
+    gcode += f"{' ;' if (self.end.comment or self.boundingBox) else ''}{self.end.comment if self.end.comment else ''}{f'; EInc={self.end.E-self.start.E}'}"
     return gcode
   
   def travelGcodeToStart(self):
@@ -172,7 +172,8 @@ class Movement:
     gcode += f" X{self.end.X:.5f} Y{self.end.Y:.4f} ;Travel to end"
     return gcode
   
-  def extrudeOnlyGcode(self, ps: PrintState):
+  # Return G-code for extrude only move. Assume E position is pre-adjusted and final.
+  def extrudeOnlyGcode(self, adjustE: bool = False, deltaE: float = None):
     gcode = MOVEMENT_G1
-    gcode += f" E{(self.end.E + ps.deltaE if ps else self.end.E):.5f} ; EInc={self.end.E-self.start.E}"
+    gcode += f" E{(self.end.E + deltaE if adjustE else self.end.E):.5f} ; EInc={self.end.E-self.start.E}"
     return gcode

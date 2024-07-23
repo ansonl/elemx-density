@@ -1,4 +1,4 @@
-import math
+import math, copy
 
 from printing_classes import *
 from constants import *
@@ -11,19 +11,19 @@ def reduceDropletsToDensity(droplets: list[Movement], density: float):
   numDroplets = len(droplets)
 
   nthDroplet = 1/density 
-  steps = math.floor(numDroplets/nthDroplet) - 1 #number of steps after the 0th (first) step
+  steps = round(numDroplets/nthDroplet) - 1 #number of steps after the 0th (first) step
 
   reducedDroplets: list[Movement] = []
 
   if steps > 1:
     for i in range(0, steps + 1):
-      reducedDroplets.append(droplets[(i)*round(numDroplets/steps)])
-  else: # Special case if output droplet count is 1 or 2
+      reducedDroplets.append(droplets[round((i)*(numDroplets-1)/steps)])
+  else: # Special case if total output droplet count is 1 or 2
     if steps > 0: # output 2 droplets
       reducedDroplets.append(droplets[math.floor(numDroplets/3) if numDroplets/3 > 1.5 else math.floor(numDroplets/3)-1])
       reducedDroplets.append(droplets[math.floor(numDroplets/3*2)])
     else: # output 1 droplet (center)
-      reducedDroplets.append(droplets[math.floor(numDroplets/2)])
+      reducedDroplets.append(droplets[round(numDroplets/2)])
 
   return reducedDroplets
 
@@ -43,12 +43,13 @@ def splitMovementToDroplets(m: Movement):
   newDroplets: list[Movement] = []
 
   for i in range(0, math.ceil(dropletCount)):
-    start = m.start + segment_e_delta * i
+    start = copy.copy(m.start)
+    start.E += segment_e_delta * i
     start.X += segment_x_delta * (i+0.5)
     start.Y += segment_y_delta * (i+0.5)
 
-    end = start
-    end.E += segment_e_delta * (i+1)
+    end = copy.copy(start)
+    end.E += segment_e_delta
     droplet = Movement(startPos=start, endPos=end, boundingBox=m.boundingBox)
     newDroplets.append(droplet)
   
