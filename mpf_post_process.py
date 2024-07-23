@@ -304,5 +304,5 @@ def process(inputFilepath: str, outputFilepath: str):
 
 
 #process(inputFilepath='long-rect.mpf', outputFilepath='long-rect-output.mpf')
-#process(inputFilepath='test-square.mpf', outputFilepath='test-square-output.mpf')
-process(inputFilepath='test-square-4-layer.mpf', outputFilepath='test-square-output.mpf')
+process(inputFilepath='test-square.mpf', outputFilepath='test-square-output.gcode')
+#process(inputFilepath='test-square-4-layer.mpf', outputFilepath='test-square-output.mpf')
