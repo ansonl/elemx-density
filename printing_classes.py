@@ -18,6 +18,14 @@ class Position:
     self.FTravel: float = 0
     self.comment: str = None
 
+  # compare X/Y/Z/E for equality
+  def __eq__(self, other): 
+    if not isinstance(other, Position):
+      # don't attempt to compare against unrelated types
+      return NotImplemented
+
+    return self.X == other.X and self.Y == other.Y and self.Z == other.Z and self.E == other.E
+
 # Bounding Box
 class BoundingBox:
   def __init__(self, origin: Position, size: Position, density: float = 1):
@@ -135,10 +143,11 @@ class Movement:
   # For travel and extrude-only movements, X,Y location only uses end position.
   # Droplet is an extrude-only movement.
 
-  def __init__(self, startPos: Position, endPos: Position, boundingBox: BoundingBox = None):
-    self.start: Position = startPos #original gcode start
+  def __init__(self, startPos: Position = None, endPos: Position = None, boundingBox: BoundingBox = None, originalGcode: str = None):
+    self.start: Position = startPos #original gcode start. is None if not a travel or printing command
     self.end: Position = endPos #original gcode end
     self.boundingBox: BoundingBox = boundingBox
+    self.originalGcode: str = originalGcode #original gcode only written out for misc gocde
     self.dropletMovements: list[Movement] = None
 
   # Return if this Movement is actually a Droplet (extrude only move)
