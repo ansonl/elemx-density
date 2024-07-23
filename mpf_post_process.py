@@ -128,7 +128,7 @@ def process(inputFilepath: str, outputFilepath: str):
         clsp = f.tell() - len(cl) - (len(lineEnding)-1) # read line start position
         #cp = f.tell() # position is start of next line after read line. We define in lower scope function as needed for retention.
 
-        if f.tell() == 215460:
+        if f.tell() == 91483:
           0==0
 
         # check for feature comment
@@ -217,7 +217,7 @@ def process(inputFilepath: str, outputFilepath: str):
           # Update current print state variables
           updatePrintState(ps=currentPrint, cl=cl, sw=currentPrint.skipWrite)
 
-          currentMovement = Movement(startPos=lastOriginalPosition, endPos = currentPrint.originalPosition, boundingBox=None)
+          currentMovement = Movement(startPos=copy.copy(lastOriginalPosition), endPos=copy.copy(currentPrint.originalPosition), boundingBox=None)
 
           currentFeature = None
           if len(currentPrint.features) > 0:
@@ -277,4 +277,5 @@ def process(inputFilepath: str, outputFilepath: str):
 
 
 #process(inputFilepath='long-rect.mpf', outputFilepath='long-rect-output.mpf')
-process(inputFilepath='test-square.mpf', outputFilepath='test-square-output.mpf')
+#process(inputFilepath='test-square.mpf', outputFilepath='test-square-output.mpf')
+process(inputFilepath='test-square-4-layer.mpf', outputFilepath='test-square-output.mpf')
