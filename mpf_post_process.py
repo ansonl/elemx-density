@@ -36,7 +36,7 @@ def placeInfill(imq: list[Movement], ps: PrintState):
           fillBBDropletRasterForDroplet(bb=m.boundingBox, droplet=d)
       else: # not initial layer, place drops on supported area
         ##TODO: implement
-        reducedDroplets = reduceDropletsToDensity(droplets=m.dropletMovements, density=m.boundingBox.density)
+        reducedDroplets = reduceDropletsToDensity(droplets=m.dropletMovements, density=m.boundingBox.densityAtLayerHeightForTargetDensity(layerHeight=ps.layerHeight))
         ps.infillModifiedDropletsNeededForDensity -= len(reducedDroplets)
         m.dropletMovements = reducedDroplets
         for d in reducedDroplets:
@@ -180,6 +180,8 @@ def updatePrintState(ps: PrintState, cl: str, sw: bool):
     ps.layerHeight = ps.originalPosition.Z
 
 def process(inputFilepath: str, outputFilepath: str):
+  startTime = time.monotonic()
+
   lineEndingFlavor = determineLineEndingTypeInFile(inputFilepath)
   print(f"detected line ending {repr(lineEndingFlavor)}")
   if lineEndingFlavor == LineEnding.UNKNOWN:
@@ -300,28 +302,12 @@ def process(inputFilepath: str, outputFilepath: str):
 
       out.write(f';Post Processed with variable density\n')
 
-      print(f"saved new mpf to {outputFilepath}")
+      print(f"Saved new mpf to {outputFilepath}")
 
   except PermissionError as e:
     print(f"Failed to open {e}")
 
-      
-        # elemx infill
-        # check for layer marker
-        # check for feature: wall/infill/other
-        # note absolute E position
-
-        # if infill, check for intersection with density boundary lines
-          # if intersect, split infill line at intersection point
-          # generate 2 new infill lines on each end of intersection point
-          # recursively check for intersection with other density boundary lines and split lines
-          # call write command line and do E adjustment there
-
-        #write command line
-        # if infill, modify E distance from last E distance based on percentage, note difference between new and old (longer) E position, add E difference to accumulated E diff counter.
-          # write infill with new E = (infill E - previous cmd E) * percentage + previous cmd E - accumulated E diff (if saved as positive)
-        # if not infill
-          # cmd with new E = cmd E - accumulated E diff (if saved as positive)
+  print(f"Completed in {str(datetime.timedelta(seconds=time.monotonic()-startTime))}s")
 
 process(inputFilepath='test-square.mpf', outputFilepath='test-square-output.mpf')
 #process(inputFilepath='test-square-4-layer.mpf', outputFilepath='test-square-output.mpf')

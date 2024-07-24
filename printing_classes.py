@@ -1,4 +1,4 @@
-import enum, math
+import enum, math, gc
 from constants import *
 
 class StatusQueueItem:
@@ -32,6 +32,7 @@ class BoundingBox:
     self.origin = origin
     self.size = size
     self.density: float = density
+    self.targetDensity: float = 1
     self.dropletOverlap = 0.5 #percentage of droplet width
     self.dropletRaster: list[None|list[list[int]]] = None #[last|current][x][y]
 
@@ -47,11 +48,25 @@ class BoundingBox:
   def advanceDropletRasterNextLayer(self):
     if self.dropletRaster:
       self.dropletRaster[0] = self.dropletRaster[1]
+      gc.collect()
       self.dropletRaster[1] = self.initializeDropletRasterLayer()
 
   # Return number of layers needed to stack to together to get to the target density (going up). Start density is first layer. Target density is last layer.
-  def numLayersToTargetDensity(self, targetDensity: float):
-    return targetDensity / self.density
+  def numLayersToTargetDensity(self):
+    return self.targetDensity / self.density
+  
+  def densityAtLayerHeightForTargetDensity(self, layerHeight: float) -> float:
+    lastLayerHeight = self.origin.Z+self.size.Z
+    lastStartDensityLayerHeight = lastLayerHeight-self.numLayersToTargetDensity()*LAYER_HEIGHT
+
+    if layerHeight <= lastStartDensityLayerHeight:
+      return self.density
+    elif layerHeight >= lastLayerHeight:
+      return self.targetDensity
+    else: 
+      percentThroughBoxHeight = (layerHeight - lastStartDensityLayerHeight) / (lastLayerHeight - lastStartDensityLayerHeight)
+      return self.density + percentThroughBoxHeight * (self.targetDensity-self.density)
+
 
 # State of current Print FILE
 class PrintState:

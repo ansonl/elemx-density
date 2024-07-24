@@ -43,6 +43,9 @@ PULSE_ON='PRIO_ON'
 
 FAKE_MOVE = '; fake move for elemx builder preview'
 
+#PRINT SETTINGS
+LAYER_HEIGHT = 0.24 #mm
+
 #DROPLET
 DROPLET_WIDTH = 0.510 #mm
 DROPLET_OVERLAP_PERC = 0.5 #%
