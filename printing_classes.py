@@ -177,12 +177,18 @@ class Movement:
     return gcode
 
   def travelGcodeToEnd(self):
-    gcode = MOVEMENT_G0
+    gcode = ''
+    gcode += f"{FEATURE_TYPE_WRITE_OUT}{TRAVEL}\n"
+    gcode += f"{PULSE_OFF}\n"
+    gcode += MOVEMENT_G0
     gcode += f" X{self.end.X:.5f} Y{self.end.Y:.4f} ;Travel to end"
     return gcode
   
   # Return G-code for extrude only move. Assume E position is pre-adjusted and final.
   def extrudeOnlyGcode(self, adjustE: bool = False, deltaE: float = None):
-    gcode = MOVEMENT_G1
+    gcode = ''
+    gcode += f"{FEATURE_TYPE_WRITE_OUT}{INFILL}\n"
+    gcode += f"{PULSE_ON}\n"
+    gcode += MOVEMENT_G1
     gcode += f" E{(self.end.E + deltaE if adjustE else self.end.E):.5f} ; EInc={self.end.E-self.start.E}"
     return gcode

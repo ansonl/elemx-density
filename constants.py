@@ -37,6 +37,13 @@ TRAVEL = 'travel'
 INFILL = 'fill'
 UNKNOWN = 'unknown'
 
+FEATURE_TYPE_WRITE_OUT = '; feature '
+PULSE_OFF='PRIO_OFF'
+PULSE_ON='PRIO_ON'
+
+FAKE_MOVE = '; fake move for elemx builder preview'
+
 #DROPLET
 DROPLET_WIDTH = 0.510 #mm
 DROPLET_OVERLAP_PERC = 0.5 #%
+DROPLET_DWELL = 0.2 #s

@@ -75,15 +75,33 @@ def outputInfillMovementQueue(imq: list[Movement], ps: PrintState):
     ps.infillMovementQueueOriginalStartPosition.E += m.end.E - m.start.E
     
     
-  # write out gcode for movement
+  # write out gcode for droplet
   def writeDroplet(m: Movement):
     nonlocal outputGcode
+
+    # ElemX preview visual
+    # Add move that is close to the final droplet position but not the same
+    fakeMove = Movement(endPos=copy.copy(m.end))
+    fakeMove.end.X += 0.00001
+    outputGcode += f"{FAKE_MOVE}\n"
+    outputGcode += f"{fakeMove.travelGcodeToEnd()}\n"
+
+    # Move to actual droplet position
     outputGcode += f"{m.travelGcodeToEnd()}\n"
+
+    # Dwell
+    outputGcode += f"{DWELL_G4}{DROPLET_DWELL:.5f}\n"
+
+    # Extrude movement w/o XY position
     outputGcode += f"{m.extrudeOnlyGcode()}\n"
 
-  def writeAdjustedMove(m: Movement):
+  def writeAdjustedExtrusionMove(m: Movement):
     nonlocal outputGcode
-    #outputGcode += f"{m.travelGcodeToStart()}\n"
+
+    # Activate PULSE_ON
+    outputGcode += f"{PULSE_ON}\n"
+
+    # Extrusion move
     outputGcode += f"{m.gcode(adjustE=False)}\n"
 
   outputGcode += f"; Start {len(ps.infillMovementQueue)} queued infill moves\n"
@@ -100,7 +118,7 @@ def outputInfillMovementQueue(imq: list[Movement], ps: PrintState):
     elif m.start.E != m.end.E: # write G1 move
       outputGcode += f"; Adjusted extrusion move\n"
       adjustE(m=m)
-      writeAdjustedMove(m=m)
+      writeAdjustedExtrusionMove(m=m)
     elif m.start != m.end: # write G0 move
       outputGcode += f"{m.originalGcode}"
     else: #unknown
@@ -207,6 +225,9 @@ def process(inputFilepath: str, outputFilepath: str):
             if currentPrint.infillMovementQueue == None:
               currentPrint.infillMovementQueue = []
               currentPrint.infillMovementQueueOriginalStartPosition = copy.copy(currentPrint.originalPosition) #save original position at queue start
+            if currentPrint.infillMovementQueue: # save feature tag gcode to queue (write feature tag twice, once where it is in the file and again when writing queue)
+              currentPrint.infillMovementQueue.append(Movement(originalGcode=cl))
+
           elif currentPrint.infillMovementQueue: # if non INFILL/TRAVEL feature found
             #process all queued infill moves
             out.write(outputInfillMovementQueue(imq=currentPrint.infillMovementQueue, ps=currentPrint))
@@ -302,7 +323,6 @@ def process(inputFilepath: str, outputFilepath: str):
         # if not infill
           # cmd with new E = cmd E - accumulated E diff (if saved as positive)
 
-
-#process(inputFilepath='long-rect.mpf', outputFilepath='long-rect-output.mpf')
-process(inputFilepath='test-square.mpf', outputFilepath='test-square-output.gcode')
+process(inputFilepath='test-square.mpf', outputFilepath='test-square-output.mpf')
 #process(inputFilepath='test-square-4-layer.mpf', outputFilepath='test-square-output.mpf')
+#process(inputFilepath='test-square-4-layer.mpf', outputFilepath='test-square-output.gcode')
