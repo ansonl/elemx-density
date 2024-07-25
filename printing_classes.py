@@ -55,6 +55,7 @@ class BoundingBox:
   def numLayersToTargetDensity(self):
     return self.targetDensity / self.density
   
+  # Return density % at global layer height for this bounding box
   def densityAtLayerHeightForTargetDensity(self, layerHeight: float) -> float:
     lastLayerHeight = self.origin.Z+self.size.Z
     lastStartDensityLayerHeight = lastLayerHeight-self.numLayersToTargetDensity()*LAYER_HEIGHT

@@ -9,9 +9,9 @@ from intersection import *
 from infill import *
 
 bbOrigin = Position()
-bbOrigin.X, bbOrigin.Y, bbOrigin.Z = 0, 0, 0.5
+bbOrigin.X, bbOrigin.Y, bbOrigin.Z = -10, -25, 0.5
 bbSize = Position()
-bbSize.X, bbSize.Y, bbSize.Z = 10, 10, 8
+bbSize.X, bbSize.Y, bbSize.Z = 40, 50, 8
 testBoundingBox = BoundingBox(origin = bbOrigin, size=bbSize, density=0.1)
 
 # infill first pass planning
@@ -21,7 +21,7 @@ def getInfillRequirements(imq: list[Movement], ps: PrintState):
       m.dropletMovements = splitMovementToDroplets(m)
 
       ps.infillModifiedDropletsOriginal += len(m.dropletMovements)
-      ps.infillModifiedDropletsNeededForDensity += len(reduceDropletsToDensity(droplets=m.dropletMovements, density=m.boundingBox.density))
+      ps.infillModifiedDropletsNeededForDensity += len(reduceDropletsToDensity(droplets=m.dropletMovements, density=m.boundingBox.densityAtLayerHeightForTargetDensity(layerHeight=ps.layerHeight)))
 
       if ps.layerHeight==1.2:
         0==0
@@ -406,7 +406,10 @@ def process(inputFilepath: str, outputFilepath: str):
 
   print(f"Completed in {str(datetime.timedelta(seconds=time.monotonic()-startTime))}s")
 
-#process(inputFilepath='test-square.mpf', outputFilepath='test-square-output.mpf')
-process(inputFilepath='test-square-10-layer.mpf', outputFilepath='test-square-output.mpf')
-shutil.copyfile('test-square-output.mpf', 'test-square-output.gcode')
+process(inputFilepath='test-square.mpf', outputFilepath='test-square-output.mpf')
+#process(inputFilepath='test-square-10-layer.mpf', outputFilepath='test-square-output.mpf')
+
 #process(inputFilepath='test-square-10-layer.mpf', outputFilepath='test-square-output.gcode')
+
+# copy and change extesion to .gcode for drag and drop preview in gcode previewer
+shutil.copyfile('test-square-output.mpf', 'test-square-output.gcode')

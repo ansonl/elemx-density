@@ -42,7 +42,9 @@ def boundingBoxSplit(movement: Movement, boundingBox: BoundingBox):
 
     #check if entire movement start and end are in bounding box
     if point_in_box(movement.start, boundingBox) and point_in_box(movement.end, boundingBox):
-      newMovements.append(movement)
+      movementWithBoundingBox = copy.copy(movement)
+      movementWithBoundingBox.boundingBox = boundingBox
+      newMovements.append(movementWithBoundingBox)
       return newMovements
 
     intersectBBL = line_intersection([movement.start.X,movement.start.Y], [movement.end.X,movement.end.Y], [boundingBox.origin.X, boundingBox.origin.Y], [boundingBox.origin.X, boundingBox.origin.Y + boundingBox.size.Y])
