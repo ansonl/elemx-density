@@ -42,7 +42,7 @@ def boundingBoxSplit(movement: Movement, boundingBox: BoundingBox):
 
     #check if entire movement start and end are in bounding box
     if point_in_box(movement.start, boundingBox) and point_in_box(movement.end, boundingBox):
-      newMovements.append(Movement(movement.start, movement.end, boundingBox))
+      newMovements.append(movement)
       return newMovements
 
     intersectBBL = line_intersection([movement.start.X,movement.start.Y], [movement.end.X,movement.end.Y], [boundingBox.origin.X, boundingBox.origin.Y], [boundingBox.origin.X, boundingBox.origin.Y + boundingBox.size.Y])
@@ -82,17 +82,17 @@ def boundingBoxSplit(movement: Movement, boundingBox: BoundingBox):
 
   if intersect2 is False:
     if point_in_box(movement.start, boundingBox): # start is in box
-      newMovements.append(Movement(movement.start, intersect1, boundingBox))
-      newMovements.append(Movement(intersect1, movement.end, None))
+      newMovements.append(Movement(startPos=movement.start, endPos=intersect1, boundingBox=boundingBox, feature=movement.feature))
+      newMovements.append(Movement(startPos=intersect1, endPos=movement.end, boundingBox=None, feature=movement.feature))
     else:
-      newMovements.append(Movement(movement.start, intersect1, None))
-      newMovements.append(Movement(intersect1, movement.end, boundingBox))
+      newMovements.append(Movement(startPos=movement.start, endPos=intersect1, boundingBox=None, feature=movement.feature))
+      newMovements.append(Movement(startPos=intersect1, endPos=movement.end, boundingBox=boundingBox, feature=movement.feature))
   else:
     intersect2.E = intersect1.E # absolute E position of the movement before this
     intersect2.E += originalStartEndEDistance * point_distance(intersect1, intersect2)/originalStartEndPointDistance # add the relative E distance
 
-    newMovements.append(Movement(movement.start, intersect1, None))
-    newMovements.append(Movement(intersect1, intersect2, boundingBox))
-    newMovements.append(Movement(intersect2, movement.end, None))
+    newMovements.append(Movement(startPos=movement.start, endPos=intersect1, boundingBox=None, feature=movement.feature))
+    newMovements.append(Movement(startPos=intersect1, endPos=intersect2, boundingBox=boundingBox, feature=movement.feature))
+    newMovements.append(Movement(startPos=intersect2, endPos=movement.end, boundingBox=None, feature=movement.feature))
   
   return newMovements

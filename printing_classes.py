@@ -33,7 +33,7 @@ class BoundingBox:
     self.size = size
     self.density: float = density
     self.targetDensity: float = 1
-    self.dropletOverlap = 0.5 #percentage of droplet width
+    self.dropletOverlap = DROPLET_OVERLAP_PERC #percentage of droplet width
     self.dropletRaster: list[None|list[list[int]]] = None #[last|current][x][y]
 
   def initializeDropletRasterLayer(self):
@@ -86,7 +86,7 @@ class PrintState:
     # Infill modified droplet stats
     self.infillModifiedDropletsOriginal: int = 0
     self.infillModifiedDropletsNeededForDensity: int = 0
-    self.infillModifiedDropletsSupported: int = 0
+    self.infillModifiedDropletsSupportedAvailable: int = 0
 
     # Movement info
     self.originalPosition: Position = Position() 
@@ -158,11 +158,18 @@ class Movement:
   # For travel and extrude-only movements, X,Y location only uses end position.
   # Droplet is an extrude-only movement.
 
-  def __init__(self, startPos: Position = None, endPos: Position = None, boundingBox: BoundingBox = None, originalGcode: str = None):
+  def __init__(self, startPos: Position = None, endPos: Position = None, boundingBox: BoundingBox = None, originalGcode: str = None, feature: Feature = None):
     self.start: Position = startPos #original gcode start. is None if not a travel or printing command
     self.end: Position = endPos #original gcode end
     self.boundingBox: BoundingBox = boundingBox
     self.originalGcode: str = originalGcode #original gcode only written out for misc gocde
+    self.feature: Feature = feature # the active feature
+    self.supportedPositions: list[Position] = [] #supported positions underneath from the previous layer
+
+    # E movement for a droplet
+    self.dropletE: None
+
+    # Droplet movements that replace this move
     self.dropletMovements: list[Movement] = None
 
   # Return if this Movement is actually a Droplet (extrude only move)
@@ -187,7 +194,10 @@ class Movement:
     return gcode
   
   def travelGcodeToStart(self):
-    gcode = MOVEMENT_G0
+    gcode = ''
+    gcode += f"{FEATURE_TYPE_WRITE_OUT}{TRAVEL}\n"
+    gcode += f"{PULSE_OFF}\n"
+    gcode += MOVEMENT_G0
     gcode += f" X{self.start.X:.5f} Y{self.start.Y:.4f} ;Travel to start"
     return gcode
 

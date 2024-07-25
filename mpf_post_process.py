@@ -1,4 +1,6 @@
-import re, os, typing, queue, time, datetime, math, enum, copy
+import re, os, typing, queue, time, datetime, math, enum, copy, random, shutil
+
+from functools import cmp_to_key
 
 from printing_classes import *
 from constants import *
@@ -7,9 +9,9 @@ from intersection import *
 from infill import *
 
 bbOrigin = Position()
-bbOrigin.X, bbOrigin.Y, bbOrigin.Z = -10, -25, 0.5
+bbOrigin.X, bbOrigin.Y, bbOrigin.Z = 0, 0, 0.5
 bbSize = Position()
-bbSize.X, bbSize.Y, bbSize.Z = 40, 50, 8
+bbSize.X, bbSize.Y, bbSize.Z = 10, 10, 8
 testBoundingBox = BoundingBox(origin = bbOrigin, size=bbSize, density=0.1)
 
 # infill first pass planning
@@ -21,42 +23,103 @@ def getInfillRequirements(imq: list[Movement], ps: PrintState):
       ps.infillModifiedDropletsOriginal += len(m.dropletMovements)
       ps.infillModifiedDropletsNeededForDensity += len(reduceDropletsToDensity(droplets=m.dropletMovements, density=m.boundingBox.density))
 
+      if ps.layerHeight==1.2:
+        0==0
+
+      # Get supported locations if previous layer raster exists
+      if m.boundingBox.dropletRaster:
+        m.supportedPositions = findSupportedLocations(m=m)
+        ps.infillModifiedDropletsSupportedAvailable += len(m.supportedPositions)
+        m.dropletMovements = None # clear movement split droplets from initial planning. 
+
 # infill 
 def placeInfill(imq: list[Movement], ps: PrintState):
-  for m in imq:
-    if m.boundingBox: # check if movement needs to be modified because it is in bounding box
-      if m.boundingBox.dropletRaster == None:
-        m.boundingBox.initializeDropletRaster()
+  def compareSupportedPositionsCount(move1: Movement, move2: Movement):
+    return len(move1.supportedPositions) - len(move2.supportedPositions)
 
-      if m.boundingBox.dropletRaster[0] == None: #initial layer, reduce and space out drops
-        reducedDroplets = reduceDropletsToDensity(droplets=m.dropletMovements, density=m.boundingBox.density)
-        ps.infillModifiedDropletsNeededForDensity -= len(reducedDroplets)
-        m.dropletMovements = reducedDroplets
-        for d in reducedDroplets:
-          fillBBDropletRasterForDroplet(bb=m.boundingBox, droplet=d)
-      else: # not initial layer, place drops on supported area
-        ##TODO: implement
-        reducedDroplets = reduceDropletsToDensity(droplets=m.dropletMovements, density=m.boundingBox.densityAtLayerHeightForTargetDensity(layerHeight=ps.layerHeight))
-        ps.infillModifiedDropletsNeededForDensity -= len(reducedDroplets)
-        m.dropletMovements = reducedDroplets
-        for d in reducedDroplets:
-          fillBBDropletRasterForDroplet(bb=m.boundingBox, droplet=d)
+  sortedMovements = copy.copy(imq)
+  sorted(sortedMovements, key=cmp_to_key(compareSupportedPositionsCount))
+
+  totalDropletsPlaced = 0
+
+  while ps.infillModifiedDropletsNeededForDensity > 0:
+    dropletsPlaced = 0
+
+    for m in sortedMovements:
+      if m.boundingBox: # check if movement needs to be modified because it is in bounding box
+        
+        if m.boundingBox.dropletRaster == None: # initialize raster with [1] allocated if needed
+          m.boundingBox.initializeDropletRaster()
+
+        if m.boundingBox.dropletRaster[0] == None: #initial layer, reduce and space out drops
+          reducedDroplets = reduceDropletsToDensity(droplets=m.dropletMovements, density=m.boundingBox.density)
+          ps.infillModifiedDropletsNeededForDensity -= len(reducedDroplets)
+          dropletsPlaced += len(reducedDroplets)
+          m.dropletMovements = reducedDroplets
+          for d in reducedDroplets:
+            fillBBDropletRasterForDroplet(bb=m.boundingBox, droplet=d)
+        else: # not initial layer, place drops on supported area
+          if len(m.supportedPositions) > 0:
+            # pick random unfilled support position to make droplet for
+            sp = None
+            while sp == None and len(m.supportedPositions) > 0:
+              randomSupportPositionIdx = random.randint(0,len(m.supportedPositions)-1)
+
+              # TODO: kernel size?
+              # check if another placed droplet on this layer would overlap too much with this droplet
+              if get3x3BBDropletRasterForPosition(bb=m.boundingBox, pos=m.supportedPositions[randomSupportPositionIdx], idx=1) == 0:
+                sp = m.supportedPositions[randomSupportPositionIdx]
+                break
+
+              del m.supportedPositions[randomSupportPositionIdx]
+            
+            if sp:
+              # create droplet
+              supportPositionStart = sp
+              supportPositionEnd = copy.copy(sp)
+              supportPositionEnd.E += m.dropletE
+              supportDroplet = Movement(startPos=supportPositionStart, endPos=supportPositionEnd, boundingBox=m.boundingBox)
+
+              # Add droplet to list of droplets replacing the movement
+              if m.dropletMovements == None:
+                m.dropletMovements = [supportDroplet]
+              else:
+                m.dropletMovements.append(supportDroplet)
+
+              # Fill current layer raster with droplet
+              fillBBDropletRasterForDroplet(bb=m.boundingBox, droplet=supportDroplet)
+
+              ps.infillModifiedDropletsNeededForDensity -= 1
+              dropletsPlaced += 1
+
+              # Remove position from supported positions
+              del m.supportedPositions[randomSupportPositionIdx]
+
+    totalDropletsPlaced += dropletsPlaced
+
+    # Stop trying to place droplets if we ran out of valid positions
+    if dropletsPlaced == 0:
+      print(f"Ran out of support positions on layer {ps.layerHeight}")
+      break
+  
+  return totalDropletsPlaced
 
 # infill
 def processInfillMovementQueue(imq: list[Movement], ps: PrintState):
   ps.infillModifiedDropletsOriginal = 0
   ps.infillModifiedDropletsNeededForDensity = 0
 
+  print(f"getting infill requirements on layer height {ps.layerHeight}")
   getInfillRequirements(imq, ps)
-  print(f"infill on layer height {ps.layerHeight} requires {ps.infillModifiedDropletsNeededForDensity}/{ps.infillModifiedDropletsOriginal} droplets for density")
-  print(f"placing infill")
-  placeInfill(imq=imq, ps=ps)
-  print(f"infill on layer height {ps.layerHeight} placed and still requires {ps.infillModifiedDropletsNeededForDensity} droplets")
+  print(f"infill on layer height {ps.layerHeight} requires {ps.infillModifiedDropletsNeededForDensity}/{ps.infillModifiedDropletsOriginal} droplets for density. Found {ps.infillModifiedDropletsSupportedAvailable} available support locations.")
+  print(f"placing infill on layer height {ps.layerHeight}")
+  totalDropletsPlaced = placeInfill(imq=imq, ps=ps)
+  print(f"infill on layer height {ps.layerHeight} placed {totalDropletsPlaced} droplets and still requires {ps.infillModifiedDropletsNeededForDensity} droplets")
 
 def outputInfillMovementQueue(imq: list[Movement], ps: PrintState):
   outputGcode = ''
 
-  processInfillMovementQueue(imq=ps.infillMovementQueue, ps=ps)
+  processInfillMovementQueue(imq=imq, ps=ps)
 
   #increment this as we write out the queue. This will be the tail position when processing
   queueStartPosition = copy.copy(ps.infillMovementQueueOriginalStartPosition)
@@ -98,29 +161,49 @@ def outputInfillMovementQueue(imq: list[Movement], ps: PrintState):
   def writeAdjustedExtrusionMove(m: Movement):
     nonlocal outputGcode
 
+    # Move to start position
+    outputGcode += f"{m.travelGcodeToStart()}\n"
+
+    # Add feature tag
+    outputGcode += f"; {FEATURE_TYPE_WRITE_OUT}{m.feature.featureType}\n"
+
     # Activate PULSE_ON
     outputGcode += f"{PULSE_ON}\n"
 
     # Extrusion move
     outputGcode += f"{m.gcode(adjustE=False)}\n"
 
-  outputGcode += f"; Start {len(ps.infillMovementQueue)} queued infill moves\n"
+  def writeTravelMove(m: Movement):
+    nonlocal outputGcode
 
-  for m in ps.infillMovementQueue:
+    # Extrusion move
+    outputGcode += f"{m.travelGcodeToEnd()}\n"
+
+  outputGcode += f"; Start {len(imq)} queued infill moves\n"
+
+  if ps.layerHeight == 0.96:
+    0==0
+
+  for m in imq:
     if m.start == None: #output original misc gcode
       outputGcode += f"{m.originalGcode}"
 
-    elif m.dropletMovements: # write droplets
-      outputGcode += f"; Interpolated movement to {len(m.dropletMovements)} droplets\n"
-      for d in m.dropletMovements:
-        adjustE(m=d)
-        writeDroplet(m=d)
+    elif m.boundingBox: # write droplets
+      if m.dropletMovements:
+        outputGcode += f"; Interpolated movement to {len(m.dropletMovements)} droplets\n"
+        for d in m.dropletMovements:
+          adjustE(m=d)
+          writeDroplet(m=d)
+      else:
+        outputGcode += f"; Move with bounding box had no droplets placed so add travel move to the end. Original move is {m.originalGcode}\n"
+        writeTravelMove(m=m)
     elif m.start.E != m.end.E: # write G1 move
       outputGcode += f"; Adjusted extrusion move\n"
       adjustE(m=m)
       writeAdjustedExtrusionMove(m=m)
     elif m.start != m.end: # write G0 move
-      outputGcode += f"{m.originalGcode}"
+      #outputGcode += f"{m.originalGcode}"
+      writeTravelMove(m=m)
     else: #unknown
       0==1
 
@@ -201,6 +284,11 @@ def process(inputFilepath: str, outputFilepath: str):
       #lp = f.tell()
       f.seek(0, os.SEEK_SET)
       
+      currentFeature = Feature()
+      currentFeature.featureType = UNKNOWN
+      currentFeature.start = f.tell()
+      currentPrint.features = [currentFeature]
+
 
       # Current line buffer
       cl = True
@@ -227,8 +315,8 @@ def process(inputFilepath: str, outputFilepath: str):
             if currentPrint.infillMovementQueue == None:
               currentPrint.infillMovementQueue = []
               currentPrint.infillMovementQueueOriginalStartPosition = copy.copy(currentPrint.originalPosition) #save original position at queue start
-            if currentPrint.infillMovementQueue: # save feature tag gcode to queue (write feature tag twice, once where it is in the file and again when writing queue)
-              currentPrint.infillMovementQueue.append(Movement(originalGcode=cl))
+            #if currentPrint.infillMovementQueue: # save feature tag gcode to queue (write feature tag twice, once where it is in the file and again when writing queue)
+            #  currentPrint.infillMovementQueue.append(Movement(originalGcode=cl))
 
           elif currentPrint.infillMovementQueue: # if non INFILL/TRAVEL feature found
             #process all queued infill moves
@@ -262,12 +350,15 @@ def process(inputFilepath: str, outputFilepath: str):
           # Update current print state variables
           updatePrintState(ps=currentPrint, cl=cl, sw=currentPrint.skipWrite)
 
-          currentMovement = Movement(startPos=copy.copy(lastOriginalPosition), endPos=copy.copy(currentPrint.originalPosition), boundingBox=None, originalGcode=cl)
-
           # retrieve current feature
           currentFeature = None
           if len(currentPrint.features) > 0:
             currentFeature = currentPrint.features[-1]
+
+          currentMovement = Movement(startPos=copy.copy(lastOriginalPosition), endPos=copy.copy(currentPrint.originalPosition), boundingBox=None, originalGcode=cl, feature=currentFeature)
+
+          if f.tell() == 83985:
+            0==0
 
           if currentFeature and (currentFeature.featureType == INFILL or currentFeature.featureType == TRAVEL):
             if currentMovement.start != currentMovement.end: #G0 or G1
@@ -281,6 +372,7 @@ def process(inputFilepath: str, outputFilepath: str):
                   newMovements = boundingBoxSplitMovements
                     
                 for nm in newMovements:
+                  nm.originalGcode = cl
                   #process infill movements in batch once another feature type is found
                   currentPrint.infillMovementQueue.append(nm)
                   
@@ -288,11 +380,16 @@ def process(inputFilepath: str, outputFilepath: str):
               else: #G0 travel
                 currentPrint.infillMovementQueue.append(currentMovement)
                 out.write(f"; queued 1 travel movement\n")
+                '''
             else: #misc gcode
-              currentMovement.start = None
-              currentMovement.end = None
-              currentPrint.infillMovementQueue.append(currentMovement)
-              out.write(f"; queued 1 misc gcode\n")
+              if cl == f"{PULSE_ON}\n" or cl == f"{PULSE_OFF}\n":
+                out.write(f"; strip out pulse command inside fill/travel feature")
+              else:
+                currentMovement.start = None
+                currentMovement.end = None
+                currentPrint.infillMovementQueue.append(currentMovement)
+                out.write(f"; queued 1 misc gcode\n")
+                '''
           
           else:
             out.write(cl)
@@ -309,6 +406,7 @@ def process(inputFilepath: str, outputFilepath: str):
 
   print(f"Completed in {str(datetime.timedelta(seconds=time.monotonic()-startTime))}s")
 
-process(inputFilepath='test-square.mpf', outputFilepath='test-square-output.mpf')
-#process(inputFilepath='test-square-4-layer.mpf', outputFilepath='test-square-output.mpf')
-#process(inputFilepath='test-square-4-layer.mpf', outputFilepath='test-square-output.gcode')
+#process(inputFilepath='test-square.mpf', outputFilepath='test-square-output.mpf')
+process(inputFilepath='test-square-10-layer.mpf', outputFilepath='test-square-output.mpf')
+shutil.copyfile('test-square-output.mpf', 'test-square-output.gcode')
+#process(inputFilepath='test-square-10-layer.mpf', outputFilepath='test-square-output.gcode')
