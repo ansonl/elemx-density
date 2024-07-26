@@ -9,7 +9,7 @@ from intersection import *
 from infill import *
 
 bbOrigin = Position()
-bbOrigin.X, bbOrigin.Y, bbOrigin.Z = -10, -25, 0.5
+bbOrigin.X, bbOrigin.Y, bbOrigin.Z = -10, -25, 1.0
 bbSize = Position()
 bbSize.X, bbSize.Y, bbSize.Z = 40, 50, 8
 testBoundingBox = BoundingBox(origin = bbOrigin, size=bbSize, density=0.1)
@@ -334,6 +334,12 @@ def process(inputFilepath: str, outputFilepath: str):
           if currentPrint.infillMovementQueue:
             out.write(outputInfillMovementQueue(imq=currentPrint.infillMovementQueue, ps=currentPrint))
 
+          #Assume M1 will only appear right before plane change
+          #During layer change, M1 comes before plane change
+          currentPrint.doneLayerCount += 1
+          out.write(f"{PULSE_OFF}\n") # Turn off pulse at end of layer to prevent dribbling
+          out.write(f"{LAYERS_COMPLETED_WRITE_OUT}{currentPrint.doneLayerCount}\n")
+
           currentPrint.originalPosition.E = 0
           currentPrint.deltaE = 0
           out.write(cl)
@@ -342,6 +348,10 @@ def process(inputFilepath: str, outputFilepath: str):
           currentFeature.featureType = UNKNOWN
           currentFeature.start = clsp
           currentPrint.features.append(currentFeature)
+
+          
+
+          
 
         else: #no new feature tag found
           #save copy of last original gcode position before reading current line gcode position

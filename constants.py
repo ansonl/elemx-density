@@ -43,6 +43,8 @@ PULSE_ON='PRIO_ON'
 
 FAKE_MOVE = '; fake move for elemx builder preview'
 
+LAYERS_COMPLETED_WRITE_OUT = 'LayersCompleted=' #number of layers completed starting from 1
+
 #PRINT SETTINGS
 LAYER_HEIGHT = 0.24 #mm
 

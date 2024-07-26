@@ -73,6 +73,7 @@ class BoundingBox:
 class PrintState:
   def __init__(self):
     self.height: float = -1 
+    self.doneLayerCount: int = 0
     self.layerHeight: float = 0
     self.previousLayerHeight: float = 0
     self.layerStart: int = 0
