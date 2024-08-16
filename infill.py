@@ -79,7 +79,7 @@ def splitMovementToDroplets(m: Movement):
   
   return newDroplets
 
-def findSupportedLocations(m: Movement) -> list[Position]:
+def findSupportedLocations(m: Movement) -> list[(int,Position)]:
   x_delta = m.end.X-m.start.X
   y_delta = m.end.Y-m.start.Y
   cartesianDistance = math.sqrt(x_delta**2 + y_delta**2)
@@ -99,7 +99,7 @@ def findSupportedLocations(m: Movement) -> list[Position]:
 
   interpolationSteps = x_delta/interpolate_x_delta
 
-  supportedLocations: list[Position] = []
+  supportedLocations: list[(int,Position)] = []
 
   for i in range(0, math.ceil(interpolationSteps)):
     checkPosition = copy.copy(m.start)
@@ -115,18 +115,18 @@ def findSupportedLocations(m: Movement) -> list[Position]:
       continue 
 
     if get3x3BBDropletRasterForPosition(bb=m.boundingBox, pos=checkPosition, idx=0) > 0:
-      supportedLocations.append(checkPosition)
+      supportedLocations.append((i,checkPosition))
 
     checkPositionLeft = copy.copy(checkPosition)
     checkPositionLeft.X += -1*interpolate_y_delta
     checkPositionLeft.Y += interpolate_x_delta
     if get3x3BBDropletRasterForPosition(bb=m.boundingBox, pos=checkPositionLeft, idx=0) > 0:
-      supportedLocations.append(checkPositionLeft)
+      supportedLocations.append((i,checkPositionLeft))
 
     checkPositionRight = copy.copy(checkPosition)
     checkPositionRight.X += interpolate_y_delta
     checkPositionRight.Y += -1* interpolate_x_delta
     if get3x3BBDropletRasterForPosition(bb=m.boundingBox, pos=checkPositionRight, idx=0) > 0:
-      supportedLocations.append(checkPositionRight)
+      supportedLocations.append((i,checkPositionRight))
 
   return supportedLocations

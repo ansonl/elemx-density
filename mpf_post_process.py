@@ -11,8 +11,8 @@ from infill import *
 bbOrigin = Position()
 bbOrigin.X, bbOrigin.Y, bbOrigin.Z = -10, -12.5, 1.0
 bbSize = Position()
-bbSize.X, bbSize.Y, bbSize.Z = 10, 25, 8
-testBoundingBox = BoundingBox(origin = bbOrigin, size=bbSize, density=0.1)
+bbSize.X, bbSize.Y, bbSize.Z = 22.5, 25, 8
+testBoundingBox = BoundingBox(origin = bbOrigin, size=bbSize, density=0.5)
 
 # infill first pass planning
 def getInfillRequirements(imq: list[Movement], ps: PrintState):
@@ -34,11 +34,12 @@ def getInfillRequirements(imq: list[Movement], ps: PrintState):
 
 # infill 
 def placeInfill(imq: list[Movement], ps: PrintState):
-  def compareSupportedPositionsCount(move1: Movement, move2: Movement):
-    return len(move1.supportedPositions) - len(move2.supportedPositions)
+  #def compareSupportedPositionsCount(move1: Movement, move2: Movement):
+  #  return len(move1.supportedPositions) - len(move2.supportedPositions)
 
   sortedMovements = copy.copy(imq)
-  sorted(sortedMovements, key=cmp_to_key(compareSupportedPositionsCount))
+  sortedMovements.sort(key=lambda x: len(x.supportedPositions))
+  #sorted(sortedMovements, key=cmp_to_key(compareSupportedPositionsCount))
 
   totalDropletsPlaced = 0
 
@@ -67,7 +68,7 @@ def placeInfill(imq: list[Movement], ps: PrintState):
 
               # TODO: kernel size?
               # check if another placed droplet on this layer would overlap too much with this droplet
-              if get3x3BBDropletRasterForPosition(bb=m.boundingBox, pos=m.supportedPositions[randomSupportPositionIdx], idx=1) == 0:
+              if get3x3BBDropletRasterForPosition(bb=m.boundingBox, pos=m.supportedPositions[randomSupportPositionIdx][1], idx=1) == 0:
                 sp = m.supportedPositions[randomSupportPositionIdx]
                 break
 
@@ -75,16 +76,22 @@ def placeInfill(imq: list[Movement], ps: PrintState):
             
             if sp:
               # create droplet
-              supportPositionStart = sp
-              supportPositionEnd = copy.copy(sp)
+              supportPositionStart = sp[1]
+              supportPositionEnd = copy.copy(sp[1])
               supportPositionEnd.E += m.dropletE
               supportDroplet = Movement(startPos=supportPositionStart, endPos=supportPositionEnd, boundingBox=m.boundingBox)
 
+              # Add to unsorted list of supported position droplet movements. Sort this when all random position added by the original index
+              if m.supportedPositionMovements == None:
+                m.supportedPositionMovements = []
+              m.supportedPositionMovements.append((sp[0], supportDroplet))
+
+              # Unused because we sort supported droplets before adding to droplet movement list
               # Add droplet to list of droplets replacing the movement
-              if m.dropletMovements == None:
-                m.dropletMovements = [supportDroplet]
-              else:
-                m.dropletMovements.append(supportDroplet)
+              #if m.dropletMovements == None:
+              #  m.dropletMovements = [supportDroplet]
+              #else:
+              #  m.dropletMovements.append(supportDroplet)
 
               # Fill current layer raster with droplet
               fillBBDropletRasterForDroplet(bb=m.boundingBox, droplet=supportDroplet)
@@ -101,7 +108,17 @@ def placeInfill(imq: list[Movement], ps: PrintState):
     if dropletsPlaced == 0:
       print(f"Ran out of support positions on layer {ps.layerHeight}")
       break
-  
+
+  # Compare the original random index stored in tuple
+  #def compareSupportedPositionsRandomIdx(move1: tuple[int, Movement], move2: tuple[int, Movement]):
+  #  return move1[0] - move2[0]
+
+  # Sort all Movements' supportedPositionMovements and replace dropletMovements
+  for m in imq:
+    if m.supportedPositionMovements:
+      m.supportedPositionMovements.sort(key=lambda x:x[0])
+      m.dropletMovements = [spm[1] for spm in m.supportedPositionMovements]
+
   return totalDropletsPlaced
 
 # infill

@@ -166,13 +166,15 @@ class Movement:
     self.boundingBox: BoundingBox = boundingBox
     self.originalGcode: str = originalGcode #original gcode only written out for misc gocde
     self.feature: Feature = feature # the active feature
-    self.supportedPositions: list[Position] = [] #supported positions underneath from the previous layer
+    self.supportedPositions: list[tuple[int, Position]] = [] #supported positions underneath from the previous layer. (Original Index, Position)
 
     # E movement for a droplet
     self.dropletE: None
 
     # Droplet movements that replace this move
     self.dropletMovements: list[Movement] = None
+    # Placed supported position droplet Movements. Initially unsorted. Sort after all placement done.
+    self.supportedPositionMovements: list[tuple[int, Movement]] = None
 
   # Return if this Movement is actually a Droplet (extrude only move)
   def isDroplet(self):
