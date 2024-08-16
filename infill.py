@@ -27,9 +27,17 @@ def get3x3BBDropletRasterForPosition(bb: BoundingBox, pos: Position, idx: int):
 
   return 0
 
+def reduceDropletsToDensity(droplets: list[Movement], density: float) -> list[Movement]:
+  """
+  Reduce # dots to % density. Evenly space droplets inclusive of start and end segments.
 
-# Reduce # dots to % density. Evenly space droplets inclusive of start and end segments.
-def reduceDropletsToDensity(droplets: list[Movement], density: float):
+  :param droplets: The chain of droplets to reduce in density.
+  :type droplets: list[Movement]
+  :param density: Target density.
+  :type density: float
+  :return: List of droplets at the target density.
+  :rtype: list[Movement]
+  """  
   numDroplets = len(droplets)
 
   nthDroplet = 1/density 
@@ -49,8 +57,16 @@ def reduceDropletsToDensity(droplets: list[Movement], density: float):
 
   return reducedDroplets
 
-# split movement into individual droplets
-def splitMovementToDroplets(m: Movement):
+def splitMovementToDroplets(m: Movement) -> list[Movement]:
+  """
+  Split movement into individual droplets
+
+  :param m: The movement to split into droplets
+  :type m: Movement
+  :return: List of droplets for the movement
+  :rtype: list[Movement]
+  """  
+
   x_delta = m.end.X-m.start.X
   y_delta = m.end.Y-m.start.Y
   e_delta = m.end.E-m.start.E
@@ -80,6 +96,14 @@ def splitMovementToDroplets(m: Movement):
   return newDroplets
 
 def findSupportedLocations(m: Movement) -> list[(int,Position)]:
+  """
+  Find support locations along a Movement. Movement is interpolated at a resolution. Supported locations are checked at each interpolated point and the 2 points perpendicular (negative reciprocal slope * resolution) the movement slope on each side of the movement line from the interpolated point.
+
+  :param m: The movement
+  :return: List of supported locations in form of original interpolated index and Position.
+  :rtype: list[(int,Position)]
+  """
+
   x_delta = m.end.X-m.start.X
   y_delta = m.end.Y-m.start.Y
   cartesianDistance = math.sqrt(x_delta**2 + y_delta**2)
