@@ -1,0 +1,38 @@
+PRIO_OFF
+G0 X-20 Y-30.0000 ; left corner
+
+PRIO_OFF
+G0 X-19.00 Y-30.0000 ;Travel to end
+
+PRIO_OFF
+G0 X-18 Y-31 ; #1
+
+PRIO_OFF
+G0 X-17 Y-30 ;E294.4007843137256 
+PRIO_OFF
+G0 X-16 Y-31 ; #2
+PRIO_OFF
+G0 X-15 Y-30 ;Travel to end
+; feature travel
+PRIO_OFF
+G0 X-14.1 Y-31 ;Travel to end
+PRIO_OFF
+G0 X-14 Y-31 ;Travel to end
+PRIO_ON
+G1 E295.9007843137256 ; #3
+; feature travel
+PRIO_OFF
+G0 X-13 Y-30 ; 
+; feature fill
+PRIO_ON
+G1 X-12 Y-31 E298 ; #4
+PRIO_OFF
+G0 X-11 Y-30 ; 
+PRIO_OFF
+PRIO_ON
+G1 E300
+PRIO_OFF
+G0 X-10 Y-31 ; #5
+;Extrude droplet no. 2 -16.745,-22 with overlap 0.75
+;PRIO_ON
+;G1 E230 ; EInc=3.920000000000016

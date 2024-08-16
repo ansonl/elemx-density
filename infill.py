@@ -6,12 +6,17 @@ from constants import *
 def fillBBDropletRasterForDroplet(bb: BoundingBox, droplet: Movement):
   bb.dropletRaster[1][round((droplet.end.X-bb.origin.X)/(DROPLET_WIDTH*bb.dropletOverlap))][round((droplet.end.Y-bb.origin.Y)/(DROPLET_WIDTH*bb.dropletOverlap))] = 1
 
+def getBBDropletRasterIndicesForPosition(bb: BoundingBox, pos: Position):
+  return (round((pos.X-bb.origin.X)/(DROPLET_WIDTH*bb.dropletOverlap)), round((pos.Y-bb.origin.Y)/(DROPLET_WIDTH*bb.dropletOverlap)))
+
 def getBBDropletRasterForPosition(bb: BoundingBox, pos: Position, idx: int):
-  return bb.dropletRaster[idx][round((pos.X-bb.origin.X)/(DROPLET_WIDTH*bb.dropletOverlap))][round((pos.Y-bb.origin.Y)/(DROPLET_WIDTH*bb.dropletOverlap))]
+  indices = getBBDropletRasterIndicesForPosition(bb=bb, pos=pos)
+  return bb.dropletRaster[idx][indices[0]][indices[1]]
 
 def get3x3BBDropletRasterForPosition(bb: BoundingBox, pos: Position, idx: int):
-  rasterX = round((pos.X-bb.origin.X)/(DROPLET_WIDTH*bb.dropletOverlap))
-  rasterY = round((pos.Y-bb.origin.Y)/(DROPLET_WIDTH*bb.dropletOverlap))
+  indices = getBBDropletRasterIndicesForPosition(bb=bb, pos=pos)
+  rasterX = indices[0]
+  rasterY = indices[1]
 
   for i in range(rasterX-1, rasterX+2):
     if i >= 0 and i < len(bb.dropletRaster[idx]):
@@ -51,13 +56,13 @@ def splitMovementToDroplets(m: Movement):
   e_delta = m.end.E-m.start.E
 
   cartesianDistance = math.sqrt(x_delta**2 + y_delta**2)
-  dropletCount = cartesianDistance / (DROPLET_WIDTH * m.boundingBox.dropletOverlap)
+  dropletCount = cartesianDistance / (DROPLET_WIDTH)
 
   segment_x_delta = x_delta / dropletCount
   segment_y_delta = y_delta / dropletCount
   segment_e_delta = e_delta / dropletCount
 
-  m.dropletE = segment_e_delta
+  m.dropletE = segment_e_delta * DROPLET_EXTRUSION_MULTIPLIER
 
   newDroplets: list[Movement] = []
 
@@ -68,7 +73,7 @@ def splitMovementToDroplets(m: Movement):
     start.Y += segment_y_delta * (i+0.5)
 
     end = copy.copy(start)
-    end.E += segment_e_delta
+    end.E += segment_e_delta * DROPLET_EXTRUSION_MULTIPLIER
     droplet = Movement(startPos=start, endPos=end, boundingBox=m.boundingBox)
     newDroplets.append(droplet)
   
@@ -101,6 +106,14 @@ def findSupportedLocations(m: Movement) -> list[Position]:
     checkPosition.X += interpolate_x_delta * i
     checkPosition.Y += interpolate_y_delta * i
     checkPosition.E = 0
+
+    # Check if position is too close to edge of bounding box
+    rasterIndices = getBBDropletRasterIndicesForPosition(bb=m.boundingBox, pos=checkPosition)
+    if rasterIndices[0] < math.floor(BOUNDARY_BOX_INSET/(DROPLET_WIDTH*m.boundingBox.dropletOverlap)) or rasterIndices[0] > len(m.boundingBox.dropletRaster[0]) - math.floor(BOUNDARY_BOX_INSET/(DROPLET_WIDTH*m.boundingBox.dropletOverlap)):
+      continue 
+    if rasterIndices[1] < math.floor(BOUNDARY_BOX_INSET/(DROPLET_WIDTH*m.boundingBox.dropletOverlap)) or rasterIndices[1] > len(m.boundingBox.dropletRaster[0][0]) - math.floor(BOUNDARY_BOX_INSET/(DROPLET_WIDTH*m.boundingBox.dropletOverlap)):
+      continue 
+
     if get3x3BBDropletRasterForPosition(bb=m.boundingBox, pos=checkPosition, idx=0) > 0:
       supportedLocations.append(checkPosition)
 

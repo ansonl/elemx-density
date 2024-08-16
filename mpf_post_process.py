@@ -9,9 +9,9 @@ from intersection import *
 from infill import *
 
 bbOrigin = Position()
-bbOrigin.X, bbOrigin.Y, bbOrigin.Z = -10, -25, 1.0
+bbOrigin.X, bbOrigin.Y, bbOrigin.Z = -10, -12.5, 1.0
 bbSize = Position()
-bbSize.X, bbSize.Y, bbSize.Z = 40, 50, 8
+bbSize.X, bbSize.Y, bbSize.Z = 10, 25, 8
 testBoundingBox = BoundingBox(origin = bbOrigin, size=bbSize, density=0.1)
 
 # infill first pass planning
@@ -138,25 +138,34 @@ def outputInfillMovementQueue(imq: list[Movement], ps: PrintState):
     ps.infillMovementQueueOriginalStartPosition.E += m.end.E - m.start.E
     
     
-  # write out gcode for droplet
+  # write out gcode to extrude a droplet
   def writeDroplet(m: Movement):
     nonlocal outputGcode
 
     # ElemX preview visual
     # Add move that is close to the final droplet position but not the same
-    fakeMove = Movement(endPos=copy.copy(m.end))
-    fakeMove.end.X += 0.00001
-    outputGcode += f"{FAKE_MOVE}\n"
-    outputGcode += f"{fakeMove.travelGcodeToEnd()}\n"
+    # Turn off for production print, only use for preview
+    if ADD_ELEMX_PREVIEW_MOVE:
+      fakeMove = Movement(endPos=copy.copy(m.end))
+      fakeMove.end.X += 0.00001
+      outputGcode += f"{FAKE_MOVE}\n"
+      outputGcode += f"{fakeMove.travelGcodeToEnd()}\n"
 
     # Move to actual droplet position
     outputGcode += f"{m.travelGcodeToEnd()}\n"
 
     # Dwell
-    outputGcode += f"{DWELL_G4}{DROPLET_DWELL:.5f}\n"
+    if DWELL_BEFORE_EXTRUDE:
+      outputGcode += f"{DWELL_G4}{DROPLET_DWELL:.5f}\n"
 
     # Extrude movement w/o XY position
-    outputGcode += f"{m.extrudeOnlyGcode()}\n"
+    #outputGcode += f"{m.extrudeOnlyGcode()}\n"
+    outputGcode += f"{m.extrudeAndMoveToEndGcode()}\n"
+
+    # Dwell
+    if DWELL_AFTER_EXTRUDE:
+      outputGcode += f"{PULSE_OFF}\n"
+      outputGcode += f"{DWELL_G4}{DROPLET_DWELL:.5f}\n"
 
   def writeAdjustedExtrusionMove(m: Movement):
     nonlocal outputGcode
@@ -326,6 +335,11 @@ def process(inputFilepath: str, outputFilepath: str):
             print(f"starting new layer")
             currentPrint.features = []
             testBoundingBox.advanceDropletRasterNextLayer()
+
+          # Replace outer perimeter with another string for output file only
+          if currentFeature.featureType == OUTER_PERIMETER and OUTPUT_RENAME_OUTER_PERIMETER:
+            cl = cl.replace(OUTER_PERIMETER, OUTPUT_RENAME_OUTER_PERIMETER)
+
           currentPrint.features.append(currentFeature)
 
           out.write(cl)
@@ -416,10 +430,11 @@ def process(inputFilepath: str, outputFilepath: str):
 
   print(f"Completed in {str(datetime.timedelta(seconds=time.monotonic()-startTime))}s")
 
-process(inputFilepath='test-square.mpf', outputFilepath='test-square-output.mpf')
+#process(inputFilepath='test-square.mpf', outputFilepath='test-square-output.mpf')
+process(inputFilepath=MPF_INPUT_FILE, outputFilepath=MPF_OUTPUT_FILE)
 #process(inputFilepath='test-square-10-layer.mpf', outputFilepath='test-square-output.mpf')
 
 #process(inputFilepath='test-square-10-layer.mpf', outputFilepath='test-square-output.gcode')
 
 # copy and change extesion to .gcode for drag and drop preview in gcode previewer
-shutil.copyfile('test-square-output.mpf', 'test-square-output.gcode')
+#shutil.copyfile('test-square-output-2.mpf', 'test-square-output.gcode')

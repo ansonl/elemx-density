@@ -9,10 +9,7 @@ CONFIG_LINE_ENDING = 'CONFIG_LINE_ENDING'
 CONFIG_APP_NAME = 'CONFIG_APP_NAME'
 CONFIG_APP_VERSION = 'CONFIG_APP_VERSION'
 
-# Universal MFM Gcode Tags
-UNIVERSAL_TOOLCHANGE_START = '^; MFM TOOLCHANGE START'
-UNIVERSAL_TOOLCHANGE_END = '^; MFM TOOLCHANGE END'
-UNIVERSAL_LAYER_CHANGE_END = '^; MFM LAYER CHANGE END'
+
 
 # Gcode Regex and Constants
 
@@ -36,6 +33,8 @@ LAYER_CHANGE = 'plane change'
 TRAVEL = 'travel'
 INFILL = 'fill'
 UNKNOWN = 'unknown'
+OUTER_PERIMETER = 'outer perimeter'
+INNER_PERIMETER = 'inner perimeter'
 
 FEATURE_TYPE_WRITE_OUT = '; feature '
 PULSE_OFF='PRIO_OFF'
@@ -45,10 +44,27 @@ FAKE_MOVE = '; fake move for elemx builder preview'
 
 LAYERS_COMPLETED_WRITE_OUT = 'LayersCompleted=' #number of layers completed starting from 1
 
-#PRINT SETTINGS
+# User config settings
+
+# Input/Output files
+MPF_INPUT_FILE = 'test-square-25x25x10.mpf'
+MPF_OUTPUT_FILE = 'test-square-output.mpf'
+GCODE_OUTPUT_FILE = 'test-square-output.gcode'
+
+# G-code options
+ADD_ELEMX_PREVIEW_MOVE = True
+OUTPUT_RENAME_OUTER_PERIMETER = INNER_PERIMETER #None or new feature type string
+DWELL_BEFORE_EXTRUDE = True
+DWELL_AFTER_EXTRUDE = False
+
+# PRINT SETTINGS
 LAYER_HEIGHT = 0.24 #mm
 
-#DROPLET
+# DROPLET
 DROPLET_WIDTH = 0.510 #mm
 DROPLET_OVERLAP_PERC = 0.5 #%
 DROPLET_DWELL = 0.2 #s
+DROPLET_EXTRUSION_MULTIPLIER = 1 # multiply by this value
+
+# INFILL
+BOUNDARY_BOX_INSET = DROPLET_WIDTH*5 #mm

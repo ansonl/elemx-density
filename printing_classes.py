@@ -219,3 +219,12 @@ class Movement:
     gcode += MOVEMENT_G1
     gcode += f" E{(self.end.E + deltaE if adjustE else self.end.E):.5f} ; EInc={self.end.E-self.start.E}"
     return gcode
+
+  # Return G-code for extrude and move to end. Assume E position is pre-adjusted and final.
+  def extrudeAndMoveToEndGcode(self, adjustE: bool = False, deltaE: float = None):
+    gcode = ''
+    gcode += f"{FEATURE_TYPE_WRITE_OUT}{INFILL}\n"
+    gcode += f"{PULSE_ON}\n"
+    gcode += MOVEMENT_G1
+    gcode += f" X{self.end.X:.5f} Y{self.end.Y:.4f} E{(self.end.E + deltaE if adjustE else self.end.E):.5f} ; EInc={self.end.E-self.start.E}"
+    return gcode
