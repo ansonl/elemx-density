@@ -51,6 +51,12 @@ class BoundingBox:
       gc.collect()
       self.dropletRaster[1] = self.initializeDropletRasterLayer()
 
+  def lastLayerHeight(self) -> float:
+    return self.origin.Z+self.size.Z
+  
+  def lastStartingDensityLayerHeight(self) -> float:
+    return self.lastLayerHeight()-self.numLayersToTargetDensity()*LAYER_HEIGHT
+
   def numLayersToTargetDensity(self) -> float:
     """
     Return number of layers needed to stack to together to get to the target density (going up). Start density is first layer. Target density is last layer.
@@ -60,18 +66,28 @@ class BoundingBox:
     """    
     return self.targetDensity / self.density
   
+  def percentThroughRampUpDensityZone(self, layerHeight: float) -> float:
+    lastLayerHeight = self.lastLayerHeight()
+    lastStartDensityLayerHeight = self.lastStartingDensityLayerHeight()
+
+    if layerHeight <= lastStartDensityLayerHeight:
+      return 0
+    if layerHeight >= lastStartDensityLayerHeight:
+      return 1
+
+    return (layerHeight - lastStartDensityLayerHeight) / (lastLayerHeight - lastStartDensityLayerHeight)
+
   # Return density % at global layer height for this bounding box
   def densityAtLayerHeightForTargetDensity(self, layerHeight: float) -> float:
-    lastLayerHeight = self.origin.Z+self.size.Z
-    lastStartDensityLayerHeight = lastLayerHeight-self.numLayersToTargetDensity()*LAYER_HEIGHT
+    lastLayerHeight = self.lastLayerHeight()
+    lastStartDensityLayerHeight = self.lastStartingDensityLayerHeight()
 
     if layerHeight <= lastStartDensityLayerHeight:
       return self.density
     elif layerHeight >= lastLayerHeight:
       return self.targetDensity
     else: 
-      percentThroughBoxHeight = (layerHeight - lastStartDensityLayerHeight) / (lastLayerHeight - lastStartDensityLayerHeight)
-      return self.density + percentThroughBoxHeight * (self.targetDensity-self.density)
+      return self.density + self.percentThroughRampUpDensityZone(layerHeight) * (self.targetDensity-self.density)
 
 
 # State of current Print FILE

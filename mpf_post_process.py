@@ -14,8 +14,14 @@ bbSize = Position()
 bbSize.X, bbSize.Y, bbSize.Z = 22.5, 25, 8
 testBoundingBox = BoundingBox(origin = bbOrigin, size=bbSize, density=0.1)
 
-# infill first pass planning
 def getInfillRequirements(imq: list[Movement], ps: PrintState):
+  """Plan infill by splitting infill movements into droplets, calculating infill droplet count needed for target density, and finding supported locations. 
+
+  :param imq: Infill movement queue
+  :type imq: list[Movement]
+  :param ps: PrintState
+  :type ps: PrintState
+  """  
   for m in imq:
     if m.boundingBox:
       m.dropletMovements = splitMovementToDroplets(m)
@@ -23,23 +29,24 @@ def getInfillRequirements(imq: list[Movement], ps: PrintState):
       ps.infillModifiedDropletsOriginal += len(m.dropletMovements)
       ps.infillModifiedDropletsNeededForDensity += len(reduceDropletsToDensity(droplets=m.dropletMovements, density=m.boundingBox.densityAtLayerHeightForTargetDensity(layerHeight=ps.layerHeight)))
 
-      if ps.layerHeight==1.2:
-        0==0
-
       # Get supported locations if previous layer raster exists
       if m.boundingBox.dropletRaster:
         m.supportedPositions = findSupportedLocations(m=m)
         ps.infillModifiedDropletsSupportedAvailable += len(m.supportedPositions)
         m.dropletMovements = None # clear movement split droplets from initial planning. 
 
-# infill 
-def placeInfill(imq: list[Movement], ps: PrintState):
-  #def compareSupportedPositionsCount(move1: Movement, move2: Movement):
-  #  return len(move1.supportedPositions) - len(move2.supportedPositions)
+def placeInfill(imq: list[Movement], ps: PrintState) -> int:
+  """Place infill into print space. Modified the queued movements to set the correct droplets.
 
+  :param imq: Infill movement queue
+  :type imq: list[Movement]
+  :param ps: PrintState
+  :type ps: PrintState
+  :return: Total number of droplets placed
+  :rtype: int
+  """  
   sortedMovements = copy.copy(imq)
   sortedMovements.sort(key=lambda x: len(x.supportedPositions))
-  #sorted(sortedMovements, key=cmp_to_key(compareSupportedPositionsCount))
 
   totalDropletsPlaced = 0
 
@@ -125,6 +132,7 @@ def placeInfill(imq: list[Movement], ps: PrintState):
 def processInfillMovementQueue(imq: list[Movement], ps: PrintState):
   ps.infillModifiedDropletsOriginal = 0
   ps.infillModifiedDropletsNeededForDensity = 0
+  ps.infillModifiedDropletsSupportedAvailable = 0
 
   print(f"getting infill requirements on layer height {ps.layerHeight}")
   getInfillRequirements(imq, ps)
