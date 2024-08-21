@@ -46,11 +46,6 @@ LAYERS_COMPLETED_WRITE_OUT = 'LayersCompleted=' #number of layers completed star
 
 # User config settings
 
-# Input/Output files
-MPF_INPUT_FILE = 'test-square-25x25x10.mpf'
-MPF_OUTPUT_FILE = 'test-square-output.mpf'
-GCODE_OUTPUT_FILE = 'test-square-output.gcode'
-
 # G-code options
 ADD_ELEMX_PREVIEW_MOVE = True
 OUTPUT_RENAME_OUTER_PERIMETER = INNER_PERIMETER #None or new feature type string
@@ -66,5 +61,15 @@ DROPLET_OVERLAP_PERC = 0.5 #%
 DROPLET_DWELL = 0.2 #s
 DROPLET_EXTRUSION_MULTIPLIER = 1 # multiply by this value
 
-# INFILL
-BOUNDARY_BOX_INSET = DROPLET_WIDTH*5 #mm
+# INFILL INSET
+MINIMUM_INSET_DROPLET_WIDTH = 1.5
+MINIMUM_BOUNDARY_BOX_INSET = DROPLET_WIDTH*MINIMUM_INSET_DROPLET_WIDTH #mm
+INSET_DROPLET_WIDTH = 4 #this is in addition to minimum inset!
+BOUNDARY_BOX_INSET = DROPLET_WIDTH*INSET_DROPLET_WIDTH #mm
+
+# Input/Output files
+MPF_INPUT_FILE = 'test-square-25x25x10.mpf'
+
+INSET_FILENAME = f'{INSET_DROPLET_WIDTH+MINIMUM_INSET_DROPLET_WIDTH:.2f}'
+MPF_OUTPUT_FILE = f"test-square-{DROPLET_EXTRUSION_MULTIPLIER}mul-{INSET_FILENAME.replace('.','-')}inset.mpf"
+GCODE_OUTPUT_FILE = 'test-square-output.gcode'

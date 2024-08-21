@@ -127,6 +127,8 @@ def findSupportedLocations(m: Movement) -> list[(int,Position)]:
 
   insetPercentage = 1 - m.boundingBox.percentThroughRampUpDensityZone(m.end.Z)
 
+  rasterResolution = DROPLET_WIDTH*m.boundingBox.dropletOverlap
+
   for i in range(0, math.ceil(interpolationSteps)):
     checkPosition = copy.copy(m.start)
     checkPosition.X += interpolate_x_delta * i
@@ -135,9 +137,9 @@ def findSupportedLocations(m: Movement) -> list[(int,Position)]:
 
     # Check if position is too close to edge of bounding box
     rasterIndices = getBBDropletRasterIndicesForPosition(bb=m.boundingBox, pos=checkPosition)
-    if rasterIndices[0] < math.floor(BOUNDARY_BOX_INSET/(DROPLET_WIDTH*m.boundingBox.dropletOverlap)) * insetPercentage or rasterIndices[0] > len(m.boundingBox.dropletRaster[0]) - math.floor(BOUNDARY_BOX_INSET/(DROPLET_WIDTH*m.boundingBox.dropletOverlap)) * insetPercentage:
+    if rasterIndices[0] < math.floor(MINIMUM_BOUNDARY_BOX_INSET/rasterResolution + BOUNDARY_BOX_INSET/rasterResolution*insetPercentage)  or rasterIndices[0] > len(m.boundingBox.dropletRaster[0]) - math.floor(MINIMUM_BOUNDARY_BOX_INSET/rasterResolution + BOUNDARY_BOX_INSET/rasterResolution*insetPercentage):
       continue 
-    if rasterIndices[1] < math.floor(BOUNDARY_BOX_INSET/(DROPLET_WIDTH*m.boundingBox.dropletOverlap)) * insetPercentage or rasterIndices[1] > len(m.boundingBox.dropletRaster[0][0]) - math.floor(BOUNDARY_BOX_INSET/(DROPLET_WIDTH*m.boundingBox.dropletOverlap)) * insetPercentage:
+    if rasterIndices[1] < math.floor(MINIMUM_BOUNDARY_BOX_INSET/rasterResolution+ BOUNDARY_BOX_INSET/rasterResolution*insetPercentage) or rasterIndices[1] > len(m.boundingBox.dropletRaster[0][0]) - math.floor(MINIMUM_BOUNDARY_BOX_INSET/rasterResolution + BOUNDARY_BOX_INSET/rasterResolution*insetPercentage):
       continue 
 
     if get3x3BBDropletRasterForPosition(bb=m.boundingBox, pos=checkPosition, idx=0) > 0:

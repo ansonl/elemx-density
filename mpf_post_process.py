@@ -9,9 +9,9 @@ from intersection import *
 from infill import *
 
 bbOrigin = Position()
-bbOrigin.X, bbOrigin.Y, bbOrigin.Z = -10, -12.5, 1.0
+bbOrigin.X, bbOrigin.Y, bbOrigin.Z = -10, -12, 1.0
 bbSize = Position()
-bbSize.X, bbSize.Y, bbSize.Z = 22.5, 25, 8
+bbSize.X, bbSize.Y, bbSize.Z = 22, 24, 8
 testBoundingBox = BoundingBox(origin = bbOrigin, size=bbSize, density=0.1)
 
 def getInfillRequirements(imq: list[Movement], ps: PrintState):
