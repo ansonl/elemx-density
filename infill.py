@@ -8,6 +8,7 @@ def fillBBDropletRasterForDroplet(bb: BoundingBox, droplet: Movement):
 
 def getBBDropletRasterIndicesForPosition(bb: BoundingBox, pos: Position):
   return (round((pos.X-bb.origin.X)/(DROPLET_WIDTH*bb.dropletOverlap)), round((pos.Y-bb.origin.Y)/(DROPLET_WIDTH*bb.dropletOverlap)))
+  return (math.ceil((1/bb.dropletOverlap)/2) + round((pos.X-bb.origin.X)/(DROPLET_WIDTH*bb.dropletOverlap)), math.ceil((1/bb.dropletOverlap)/2) + round((pos.Y-bb.origin.Y)/(DROPLET_WIDTH*bb.dropletOverlap)))
 
 def getBBDropletRasterForPosition(bb: BoundingBox, pos: Position, idx: int):
   indices = getBBDropletRasterIndicesForPosition(bb=bb, pos=pos)
@@ -46,10 +47,21 @@ def reduceDropletsToDensity(droplets: list[Movement], density: float) -> list[Mo
   reducedDroplets: list[Movement] = []
 
   if steps > 1:
+    inset45DegreeDropletCount = (MINIMUM_INSET_DROPLET_WIDTH+INSET_DROPLET_WIDTH)*2**0.5
     for i in range(0, steps + 1):
-      reducedDroplets.append(droplets[round((i)*(numDroplets-1)/steps)])
+      # Check if scaled droplets is enough drops if we avoid dropping in inset assuming bounding box is exactly where infill bounds are. Assume 45 degree infill angle on average.
+      #reducedDroplets.append(droplets[round((i)*(numDroplets-1)/steps)]) #drop evenly spaced
+      if numDroplets <= steps+1: #drop all drops
+        reducedDroplets.extend(droplets)
+        break
+      elif numDroplets - math.floor(inset45DegreeDropletCount)*2 < steps+1:
+        insetDropletCountOnEnds = math.floor((numDroplets - (steps+1)) / 2)
+        reducedDroplets.extend(droplets[insetDropletCountOnEnds:insetDropletCountOnEnds+steps+1]) #drop center droplets
+      else: #drop avoiding inset distance on either end
+        reducedDroplets.append(droplets[math.floor(inset45DegreeDropletCount) + round((i)*(numDroplets-1-inset45DegreeDropletCount*2)/steps)]) #drop evenly spaced
+
   else: # Special case if total output droplet count is 1 or 2
-    if steps > 0: # output 2 droplets
+    if steps > 0: # output 2 droplets evenly spaced exclusive of endpoints
       reducedDroplets.append(droplets[math.floor(numDroplets/3) if numDroplets/3 > 1.5 else math.floor(numDroplets/3)-1])
       reducedDroplets.append(droplets[math.floor(numDroplets/3*2)])
     else: # output 1 droplet (center)
@@ -136,10 +148,15 @@ def findSupportedLocations(m: Movement) -> list[(int,Position)]:
     checkPosition.E = 0
 
     # Check if position is too close to edge of bounding box
-    rasterIndices = getBBDropletRasterIndicesForPosition(bb=m.boundingBox, pos=checkPosition)
-    if rasterIndices[0] < math.floor(MINIMUM_BOUNDARY_BOX_INSET/rasterResolution + BOUNDARY_BOX_INSET/rasterResolution*insetPercentage)  or rasterIndices[0] > len(m.boundingBox.dropletRaster[0]) - math.floor(MINIMUM_BOUNDARY_BOX_INSET/rasterResolution + BOUNDARY_BOX_INSET/rasterResolution*insetPercentage):
+    rasterIndices = getBBDropletRasterIndicesForPosition(bb=m.boundingBox, 
+    pos=checkPosition)
+    #rasterIndices = tuple(rasterIndices[ri]-math.ceil((1/m.boundingBox.dropletOverlap)/2) for ri in range(len(rasterIndices))) #subtract raster indices by padded amount on raster edge to get 0 based location relative to bounding box origin
+
+    insetDistIndices = math.floor(MINIMUM_BOUNDARY_BOX_INSET/rasterResolution + BOUNDARY_BOX_INSET/rasterResolution*insetPercentage)
+
+    if rasterIndices[0] < insetDistIndices or rasterIndices[0] > len(m.boundingBox.dropletRaster[0]) - insetDistIndices:
       continue 
-    if rasterIndices[1] < math.floor(MINIMUM_BOUNDARY_BOX_INSET/rasterResolution+ BOUNDARY_BOX_INSET/rasterResolution*insetPercentage) or rasterIndices[1] > len(m.boundingBox.dropletRaster[0][0]) - math.floor(MINIMUM_BOUNDARY_BOX_INSET/rasterResolution + BOUNDARY_BOX_INSET/rasterResolution*insetPercentage):
+    if rasterIndices[1] < insetDistIndices or rasterIndices[1] > len(m.boundingBox.dropletRaster[0][0]) - insetDistIndices:
       continue 
 
     if get3x3BBDropletRasterForPosition(bb=m.boundingBox, pos=checkPosition, idx=0) > 0:

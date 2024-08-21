@@ -37,7 +37,8 @@ class BoundingBox:
     self.dropletRaster: list[None|list[list[int]]] = None #[last|current][x][y]
 
   def initializeDropletRasterLayer(self):
-    return [[0 for _ in range(0, 1 + math.ceil(self.size.Y/(DROPLET_WIDTH*self.dropletOverlap)))] for _ in range(0, 1 + math.ceil(self.size.X/(DROPLET_WIDTH*self.dropletOverlap)))]
+    return [[0 for _ in range(0, round(self.size.Y/(DROPLET_WIDTH*self.dropletOverlap)) + 1)] for _ in range(0, round(self.size.X/(DROPLET_WIDTH*self.dropletOverlap)) + 1)]
+    return [[0 for _ in range(0, math.ceil((1/self.dropletOverlap)/2) + math.ceil(self.size.Y/(DROPLET_WIDTH*self.dropletOverlap)))] for _ in range(0, math.ceil((1/self.dropletOverlap)/2) + math.ceil(self.size.X/(DROPLET_WIDTH*self.dropletOverlap)))]
 
   def initializeDropletRaster(self):
     self.dropletRaster = [None, self.initializeDropletRasterLayer()]
