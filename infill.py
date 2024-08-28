@@ -3,25 +3,33 @@ import math, copy
 from printing_classes import *
 from constants import *
 
-def fillBBDropletRasterForDroplet(bb: BoundingBox, droplet: Movement):
-  bb.dropletRaster[1][round((droplet.end.X-bb.origin.X)/(DROPLET_WIDTH*bb.dropletOverlap))][round((droplet.end.Y-bb.origin.Y)/(DROPLET_WIDTH*bb.dropletOverlap))] = 1
+
 
 def getBBDropletRasterIndicesForPosition(bb: BoundingBox, pos: Position):
-  return (round((pos.X-bb.origin.X)/(DROPLET_WIDTH*bb.dropletOverlap)), round((pos.Y-bb.origin.Y)/(DROPLET_WIDTH*bb.dropletOverlap)))
-  return (math.ceil((1/bb.dropletOverlap)/2) + round((pos.X-bb.origin.X)/(DROPLET_WIDTH*bb.dropletOverlap)), math.ceil((1/bb.dropletOverlap)/2) + round((pos.Y-bb.origin.Y)/(DROPLET_WIDTH*bb.dropletOverlap)))
+  return (round((pos.X-bb.origin.X)/(DROPLET_WIDTH*bb.dropletRasterResolution)), round((pos.Y-bb.origin.Y)/(DROPLET_WIDTH*bb.dropletRasterResolution)))
+  #return (math.ceil((1/bb.dropletOverlap)/2) + round((pos.X-bb.origin.X)/(DROPLET_WIDTH*bb.dropletOverlap)), math.ceil((1/bb.dropletOverlap)/2) + round((pos.Y-bb.origin.Y)/(DROPLET_WIDTH*bb.dropletOverlap)))
+
+def fillBBDropletRasterForDroplet(bb: BoundingBox, droplet: Movement):
+  indices = getBBDropletRasterIndicesForPosition(bb=bb, pos=droplet.end)
+  bb.dropletRaster[1][indices[0]][indices[1]] = 1
 
 def getBBDropletRasterForPosition(bb: BoundingBox, pos: Position, idx: int):
   indices = getBBDropletRasterIndicesForPosition(bb=bb, pos=pos)
   return bb.dropletRaster[idx][indices[0]][indices[1]]
 
-def get3x3BBDropletRasterForPosition(bb: BoundingBox, pos: Position, idx: int):
+def getNxNBBDropletRasterForPosition(bb: BoundingBox, pos: Position, idx: int, n: int, excludeCornerDropletRadius: int):
   indices = getBBDropletRasterIndicesForPosition(bb=bb, pos=pos)
   rasterX = indices[0]
   rasterY = indices[1]
+  sideDist = int((n-1)/2)
 
-  for i in range(rasterX-1, rasterX+2):
+  if excludeCornerDropletRadius > sideDist:
+    print(f'excludeCornerDropletRadius {excludeCornerDropletRadius} is greater than sideDistance {sideDist}\n')
+    0==1 #abort
+
+  for i in range(rasterX-sideDist, rasterX+sideDist+1):
     if i >= 0 and i < len(bb.dropletRaster[idx]):
-      for j in range(rasterY-1, rasterY+2):
+      for j in range(rasterY-sideDist+max(0, excludeCornerDropletRadius-(sideDist-abs(rasterX-i))), rasterY+sideDist+1-max(0, excludeCornerDropletRadius-(sideDist-abs(rasterX-i)))):
         if j >= 0 and j < len(bb.dropletRaster[idx][i]):
           if bb.dropletRaster[idx][i][j]:
             return bb.dropletRaster[idx][i][j]
@@ -39,8 +47,10 @@ def reduceDropletsToDensity(droplets: list[Movement], density: float) -> list[Mo
   :return: List of droplets at the target density.
   :rtype: list[Movement]
   """  
-  numDroplets = len(droplets)
 
+  #density = 0.03
+
+  numDroplets = len(droplets)
   nthDroplet = 1/density 
   steps = round(numDroplets/nthDroplet) - 1 #number of steps after the 0th (first) step
 
@@ -69,7 +79,7 @@ def reduceDropletsToDensity(droplets: list[Movement], density: float) -> list[Mo
 
   return reducedDroplets
 
-def splitMovementToDroplets(m: Movement) -> list[Movement]:
+def splitMovementToDroplets(m: Movement, singleDropletWidthResolution: bool) -> list[Movement]:
   """
   Split movement into individual droplets
 
@@ -84,11 +94,11 @@ def splitMovementToDroplets(m: Movement) -> list[Movement]:
   e_delta = m.end.E-m.start.E
 
   cartesianDistance = math.sqrt(x_delta**2 + y_delta**2)
-  dropletCount = cartesianDistance / (DROPLET_WIDTH)
+  dropletCount = cartesianDistance / (DROPLET_WIDTH * 1 if singleDropletWidthResolution else DROPLET_RASTER_RESOLUTION_PERC)
 
   segment_x_delta = x_delta / dropletCount
   segment_y_delta = y_delta / dropletCount
-  segment_e_delta = e_delta / dropletCount
+  segment_e_delta = (e_delta / dropletCount) * (1 if singleDropletWidthResolution else 1/DROPLET_RASTER_RESOLUTION_PERC)
 
   m.dropletE = segment_e_delta * DROPLET_EXTRUSION_MULTIPLIER
 
@@ -120,7 +130,7 @@ def findSupportedLocations(m: Movement) -> list[(int,Position)]:
   y_delta = m.end.Y-m.start.Y
   cartesianDistance = math.sqrt(x_delta**2 + y_delta**2)
 
-  xyResolution = DROPLET_WIDTH*m.boundingBox.dropletOverlap
+  xyResolution = DROPLET_WIDTH*m.boundingBox.dropletRasterResolution
 
   interpolate_x_delta = 0
   interpolate_y_delta = 0
@@ -139,8 +149,6 @@ def findSupportedLocations(m: Movement) -> list[(int,Position)]:
 
   insetPercentage = 1 - m.boundingBox.percentThroughRampUpDensityZone(m.end.Z)
 
-  rasterResolution = DROPLET_WIDTH*m.boundingBox.dropletOverlap
-
   for i in range(0, math.ceil(interpolationSteps)):
     checkPosition = copy.copy(m.start)
     checkPosition.X += interpolate_x_delta * i
@@ -152,26 +160,26 @@ def findSupportedLocations(m: Movement) -> list[(int,Position)]:
     pos=checkPosition)
     #rasterIndices = tuple(rasterIndices[ri]-math.ceil((1/m.boundingBox.dropletOverlap)/2) for ri in range(len(rasterIndices))) #subtract raster indices by padded amount on raster edge to get 0 based location relative to bounding box origin
 
-    insetDistIndices = math.floor(MINIMUM_BOUNDARY_BOX_INSET/rasterResolution + BOUNDARY_BOX_INSET/rasterResolution*insetPercentage)
+    insetDistIndices = math.floor(MINIMUM_BOUNDARY_BOX_INSET/xyResolution + BOUNDARY_BOX_INSET/xyResolution*insetPercentage)
 
     if rasterIndices[0] < insetDistIndices or rasterIndices[0] > len(m.boundingBox.dropletRaster[0]) - insetDistIndices:
       continue 
     if rasterIndices[1] < insetDistIndices or rasterIndices[1] > len(m.boundingBox.dropletRaster[0][0]) - insetDistIndices:
       continue 
 
-    if get3x3BBDropletRasterForPosition(bb=m.boundingBox, pos=checkPosition, idx=0) > 0:
+    if getNxNBBDropletRasterForPosition(bb=m.boundingBox, pos=checkPosition, idx=0, n=DROPLET_RASTER_SUPPORTED_SEARCH_KERNEL_SIZE, excludeCornerDropletRadius=DROPLET_RASTER_SUPPORTED_SEARCH_CORNER_RADIUS) > 0:
       supportedLocations.append((i,checkPosition))
 
     checkPositionLeft = copy.copy(checkPosition)
     checkPositionLeft.X += -1*interpolate_y_delta
     checkPositionLeft.Y += interpolate_x_delta
-    if get3x3BBDropletRasterForPosition(bb=m.boundingBox, pos=checkPositionLeft, idx=0) > 0:
+    if getNxNBBDropletRasterForPosition(bb=m.boundingBox, pos=checkPositionLeft, idx=0, n=DROPLET_RASTER_SUPPORTED_SEARCH_KERNEL_SIZE, excludeCornerDropletRadius=DROPLET_RASTER_SUPPORTED_SEARCH_CORNER_RADIUS) > 0:
       supportedLocations.append((i,checkPositionLeft))
 
     checkPositionRight = copy.copy(checkPosition)
     checkPositionRight.X += interpolate_y_delta
     checkPositionRight.Y += -1* interpolate_x_delta
-    if get3x3BBDropletRasterForPosition(bb=m.boundingBox, pos=checkPositionRight, idx=0) > 0:
+    if getNxNBBDropletRasterForPosition(bb=m.boundingBox, pos=checkPositionRight, idx=0, n=DROPLET_RASTER_SUPPORTED_SEARCH_KERNEL_SIZE, excludeCornerDropletRadius=DROPLET_RASTER_SUPPORTED_SEARCH_CORNER_RADIUS) > 0:
       supportedLocations.append((i,checkPositionRight))
 
   return supportedLocations

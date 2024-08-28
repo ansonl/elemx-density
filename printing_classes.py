@@ -33,12 +33,13 @@ class BoundingBox:
     self.size = size
     self.density: float = density
     self.targetDensity: float = 1
-    self.dropletOverlap = DROPLET_OVERLAP_PERC #percentage of droplet width
+    #self.dropletOverlap = DROPLET_OVERLAP_PERC #percentage of droplet width
+    self.dropletRasterResolution = DROPLET_RASTER_RESOLUTION_PERC
     self.dropletRaster: list[None|list[list[int]]] = None #[last|current][x][y]
 
   def initializeDropletRasterLayer(self):
-    return [[0 for _ in range(0, round(self.size.Y/(DROPLET_WIDTH*self.dropletOverlap)) + 1)] for _ in range(0, round(self.size.X/(DROPLET_WIDTH*self.dropletOverlap)) + 1)]
-    return [[0 for _ in range(0, math.ceil((1/self.dropletOverlap)/2) + math.ceil(self.size.Y/(DROPLET_WIDTH*self.dropletOverlap)))] for _ in range(0, math.ceil((1/self.dropletOverlap)/2) + math.ceil(self.size.X/(DROPLET_WIDTH*self.dropletOverlap)))]
+    return [[0 for _ in range(0, round(self.size.Y/(DROPLET_WIDTH*self.dropletRasterResolution)) + 1)] for _ in range(0, round(self.size.X/(DROPLET_WIDTH*self.dropletRasterResolution)) + 1)]
+    #return [[0 for _ in range(0, math.ceil((1/self.dropletOverlap)/2) + math.ceil(self.size.Y/(DROPLET_WIDTH*self.dropletOverlap)))] for _ in range(0, math.ceil((1/self.dropletOverlap)/2) + math.ceil(self.size.X/(DROPLET_WIDTH*self.dropletOverlap)))]
 
   def initializeDropletRaster(self):
     self.dropletRaster = [None, self.initializeDropletRasterLayer()]
@@ -73,7 +74,7 @@ class BoundingBox:
 
     if layerHeight <= lastStartDensityLayerHeight:
       return 0
-    if layerHeight >= lastStartDensityLayerHeight:
+    if layerHeight >= lastLayerHeight:
       return 1
 
     return (layerHeight - lastStartDensityLayerHeight) / (lastLayerHeight - lastStartDensityLayerHeight)

@@ -11,7 +11,7 @@ from infill import *
 bbOrigin = Position()
 bbOrigin.X, bbOrigin.Y, bbOrigin.Z = -10, -12, 1.0
 bbSize = Position()
-bbSize.X, bbSize.Y, bbSize.Z = 22, 24, 8
+bbSize.X, bbSize.Y, bbSize.Z = 22, 24, 7
 testBoundingBox = BoundingBox(origin = bbOrigin, size=bbSize, density=0.1)
 
 def getInfillRequirements(imq: list[Movement], ps: PrintState):
@@ -24,13 +24,13 @@ def getInfillRequirements(imq: list[Movement], ps: PrintState):
   """  
   for m in imq:
     if m.boundingBox:
-      m.dropletMovements = splitMovementToDroplets(m)
+      m.dropletMovements = splitMovementToDroplets(m=m, singleDropletWidthResolution=False if m.boundingBox.dropletRaster else True)
 
       ps.infillModifiedDropletsOriginal += len(m.dropletMovements)
       ps.infillModifiedDropletsNeededForDensity += len(reduceDropletsToDensity(droplets=m.dropletMovements, density=m.boundingBox.densityAtLayerHeightForTargetDensity(layerHeight=ps.layerHeight)))
 
       # Get supported locations if previous layer raster exists
-      if m.boundingBox.dropletRaster:
+      if m.boundingBox.dropletRaster and DEBUG_PREVIEW_ALL_DROPLETS_SUPPORTED == False:
         m.supportedPositions = findSupportedLocations(m=m)
         ps.infillModifiedDropletsSupportedAvailable += len(m.supportedPositions)
         m.dropletMovements = None # clear movement split droplets from initial planning. 
@@ -59,6 +59,10 @@ def placeInfill(imq: list[Movement], ps: PrintState) -> int:
         if m.boundingBox.dropletRaster == None: # initialize raster with [1] allocated if needed
           m.boundingBox.initializeDropletRaster()
 
+        if DEBUG_PREVIEW_ALL_DROPLETS_SUPPORTED:
+          for d in m.dropletMovements:
+            fillBBDropletRasterForDroplet(bb=m.boundingBox, droplet=d)
+
         if m.boundingBox.dropletRaster[0] == None: #initial layer, reduce and space out drops
           reducedDroplets = reduceDropletsToDensity(droplets=m.dropletMovements, density=m.boundingBox.density)
           ps.infillModifiedDropletsNeededForDensity -= len(reducedDroplets)
@@ -75,7 +79,7 @@ def placeInfill(imq: list[Movement], ps: PrintState) -> int:
 
               # TODO: kernel size?
               # check if another placed droplet on this layer would overlap too much with this droplet
-              if get3x3BBDropletRasterForPosition(bb=m.boundingBox, pos=m.supportedPositions[randomSupportPositionIdx][1], idx=1) == 0:
+              if getNxNBBDropletRasterForPosition(bb=m.boundingBox, pos=m.supportedPositions[randomSupportPositionIdx][1], idx=1, n=DROPLET_RASTER_COLLISION_SEARCH_KERNEL_SIZE, excludeCornerDropletRadius=DROPLET_RASTER_COLLISION_SEARCH_CORNER_RADIUS) == 0:
                 sp = m.supportedPositions[randomSupportPositionIdx]
                 break
 
@@ -406,6 +410,7 @@ def process(inputFilepath: str, outputFilepath: str):
 
           currentMovement = Movement(startPos=copy.copy(lastOriginalPosition), endPos=copy.copy(currentPrint.originalPosition), boundingBox=None, originalGcode=cl, feature=currentFeature)
 
+          #DEBUG
           if f.tell() == 83985:
             0==0
 
@@ -462,4 +467,4 @@ process(inputFilepath=MPF_INPUT_FILE, outputFilepath=MPF_OUTPUT_FILE)
 #process(inputFilepath='test-square-10-layer.mpf', outputFilepath='test-square-output.gcode')
 
 # copy and change extesion to .gcode for drag and drop preview in gcode previewer
-#shutil.copyfile('test-square-output-2.mpf', 'test-square-output.gcode')
+#shutil.copyfile('test-square-output-2.mpf', GCODE_OUTPUT_FILE)
