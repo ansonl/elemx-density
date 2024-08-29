@@ -68,16 +68,19 @@ class BoundingBox:
     """    
     return self.targetDensity / self.density
   
-  def percentThroughRampUpDensityZone(self, layerHeight: float) -> float:
+  def percentThroughRampUpDensityZone(self, layerHeight: float, rampUpDistanceMultiplier: float = 1) -> float:
     lastLayerHeight = self.lastLayerHeight()
     lastStartDensityLayerHeight = self.lastStartingDensityLayerHeight()
+    
+    # scaled for multiplier
+    finalLastStartDensityLayerHeight = lastLayerHeight - ((lastLayerHeight - lastStartDensityLayerHeight) * rampUpDistanceMultiplier)
 
-    if layerHeight <= lastStartDensityLayerHeight:
+    if layerHeight <= finalLastStartDensityLayerHeight:
       return 0
     if layerHeight >= lastLayerHeight:
       return 1
 
-    return (layerHeight - lastStartDensityLayerHeight) / (lastLayerHeight - lastStartDensityLayerHeight)
+    return (layerHeight - finalLastStartDensityLayerHeight) / ((lastLayerHeight - lastStartDensityLayerHeight) * rampUpDistanceMultiplier)
 
   # Return density % at global layer height for this bounding box
   def densityAtLayerHeightForTargetDensity(self, layerHeight: float) -> float:

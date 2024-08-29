@@ -9,10 +9,17 @@ from intersection import *
 from infill import *
 
 bbOrigin = Position()
-bbOrigin.X, bbOrigin.Y, bbOrigin.Z = -10, -12, 1.0
 bbSize = Position()
-bbSize.X, bbSize.Y, bbSize.Z = 22, 24, 7
-testBoundingBox = BoundingBox(origin = bbOrigin, size=bbSize, density=0.1)
+
+#test square 25x25x10
+#bbOrigin.X, bbOrigin.Y, bbOrigin.Z = -10, -12, 1.0
+#bbSize.X, bbSize.Y, bbSize.Z = 22, 24, 7
+
+#long rect 205x20x20
+bbOrigin.X, bbOrigin.Y, bbOrigin.Z = -103, -9.5, 1.0
+bbSize.X, bbSize.Y, bbSize.Z = 206, 19, 15
+
+testBoundingBox = BoundingBox(origin = bbOrigin, size=bbSize, density=0.05)
 
 def getInfillRequirements(imq: list[Movement], ps: PrintState):
   """Plan infill by splitting infill movements into droplets, calculating infill droplet count needed for target density, and finding supported locations. 
