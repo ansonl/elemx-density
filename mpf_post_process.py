@@ -12,8 +12,8 @@ bbOrigin = Position()
 bbSize = Position()
 
 #test square 25x25x10
-bbOrigin.X, bbOrigin.Y, bbOrigin.Z = -10, -12, 1.0
-bbSize.X, bbSize.Y, bbSize.Z = 22, 24, 7
+bbOrigin.X, bbOrigin.Y, bbOrigin.Z = -12, -12, 1.0
+bbSize.X, bbSize.Y, bbSize.Z = 24, 24, 7
 
 #long rect 205x20x20
 #bbOrigin.X, bbOrigin.Y, bbOrigin.Z = -103, -9.5, 1.0
