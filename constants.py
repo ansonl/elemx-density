@@ -47,8 +47,8 @@ LAYERS_COMPLETED_WRITE_OUT = 'LayersCompleted=' #number of layers completed star
 # User config settings
 
 # G-code options
-ADD_ELEMX_PREVIEW_MOVE = False #enable for preview
-DWELL_BEFORE_EXTRUDE = False #also enable this for preview
+ADD_ELEMX_PREVIEW_MOVE = True #enable for preview
+DWELL_BEFORE_EXTRUDE = True #also enable this for preview
 DWELL_AFTER_EXTRUDE = False
 OUTPUT_RENAME_OUTER_PERIMETER = INNER_PERIMETER #None or new feature type string
 

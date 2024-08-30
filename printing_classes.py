@@ -120,6 +120,9 @@ class PrintState:
     self.originalPosition: Position = Position() 
     # E delta
     self.deltaE: float = 0 # how much we have deviated from the original E position
+    # Z offset
+    self.offsetZ: float = 0 # how much the Z axis is current offset by
+
 
     # Prime tower / Toolchange values for current layer
     self.features: list[Feature] = [] # Printing features

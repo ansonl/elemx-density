@@ -12,7 +12,7 @@ bbOrigin = Position()
 bbSize = Position()
 
 #test square 25x25x10
-bbOrigin.X, bbOrigin.Y, bbOrigin.Z = -10, -12, 1.0+INFILL_Z_OFFSET
+bbOrigin.X, bbOrigin.Y, bbOrigin.Z = -10, -12, 1.0
 bbSize.X, bbSize.Y, bbSize.Z = 22, 24, 7
 
 #long rect 205x20x20
@@ -221,13 +221,14 @@ def outputInfillMovementQueue(imq: list[Movement], ps: PrintState):
   def writeTravelMove(m: Movement):
     nonlocal outputGcode
 
+    #DEBUG
+    #if m.end.X == -6.91134 and m.end.Y==11.8645:
+    #  0==0
+
     # Travel move to end
     outputGcode += f"{m.travelGcodeToEnd(addZAxis=(m.start.Z != m.end.Z and m.end.Z > 0))}\n"
 
   outputGcode += f"; Start {len(imq)} queued infill moves\n"
-
-  if ps.layerHeight == 0.96:
-    0==0
 
   for m in imq:
     if m.start == None: #output original misc gcode
@@ -342,24 +343,38 @@ def process(inputFilepath: str, outputFilepath: str):
         clsp = f.tell() - len(cl) - (len(lineEnding)-1) # read line start position
         #cp = f.tell() # position is start of next line after read line. We define in lower scope function as needed for retention.
 
-        if f.tell() == 91483:
-          0==0
+        def positionZIntersectsBoundingBoxZ(p: Position, bb: BoundingBox):
+          return p.Z >= bb.origin.Z and p.Z <= bb.origin.Z + bb.size.Z
+
+        def startInfillMovementQueue():
+          if currentPrint.originalPosition.Z == 1.2:
+            0==0
+
+          currentPrint.infillMovementQueue = []
+          currentPrint.infillMovementQueueOriginalStartPosition = copy.copy(currentPrint.originalPosition) #save original position at queue start
+
+          if INFILL_Z_OFFSET > 0 and positionZIntersectsBoundingBoxZ(currentPrint.originalPosition, bb=testBoundingBox):
+            moveZUp = Movement(startPos=currentPrint.infillMovementQueueOriginalStartPosition, endPos=copy.copy(currentPrint.infillMovementQueueOriginalStartPosition), boundingBox=None, originalGcode=None, feature=currentFeature)
+            moveZUp.end.Z += INFILL_Z_OFFSET
+            moveZUp.end.Z = round(moveZUp.end.Z, 3)
+            currentPrint.infillMovementQueue.append(moveZUp)
+            currentPrint.offsetZ = INFILL_Z_OFFSET
+            #currentPrint.originalPosition.Z = moveZUp.end.Z
 
         def endInfillMovementQueue():
-          # reset Z offset to original height
+          # reset Z offset
           moveZDown = None
-          if INFILL_Z_OFFSET > 0:
+          if currentPrint.offsetZ > 0:
             moveZDown = Movement(startPos=copy.copy(currentPrint.originalPosition), endPos=copy.copy(currentPrint.originalPosition), boundingBox=None, originalGcode=None, feature=currentFeature)
-            moveZDown.end.Z -= INFILL_Z_OFFSET
-            moveZDown.end.Z = round(moveZDown.end.Z, 3)
+            moveZDown.start.Z += currentPrint.offsetZ # Set real Z position for start so that we know that Z has changed when creating Gcode
             currentPrint.infillMovementQueue.append(moveZDown)
 
           #process all queued infill moves -> output the moves
           out.write(outputInfillMovementQueue(imq=currentPrint.infillMovementQueue, ps=currentPrint))
 
-          # reset tracked Z position to original height
-          if INFILL_Z_OFFSET > 0:
-            currentPrint.originalPosition.Z = moveZDown.end.Z
+          # reset Z offset
+          if currentPrint.offsetZ > 0:
+            currentPrint.offsetZ = 0
 
         # check for feature comment
         featureMatch = re.match(FEATURE_TYPE, cl)
@@ -375,15 +390,7 @@ def process(inputFilepath: str, outputFilepath: str):
           if currentFeature.featureType == INFILL or currentFeature.featureType == TRAVEL:
             # Start new infill movement sequence
             if currentPrint.infillMovementQueue == None:
-              currentPrint.infillMovementQueue = []
-              currentPrint.infillMovementQueueOriginalStartPosition = copy.copy(currentPrint.originalPosition) #save original position at queue start
-
-              if INFILL_Z_OFFSET > 0:
-                moveZUp = Movement(startPos=currentPrint.infillMovementQueueOriginalStartPosition, endPos=copy.copy(currentPrint.infillMovementQueueOriginalStartPosition), boundingBox=None, originalGcode=None, feature=currentFeature)
-                moveZUp.end.Z += INFILL_Z_OFFSET
-                moveZUp.end.Z = round(moveZUp.end.Z, 3)
-                currentPrint.infillMovementQueue.append(moveZUp)
-                currentPrint.originalPosition.Z = moveZUp.end.Z
+              startInfillMovementQueue()
             #if currentPrint.infillMovementQueue: # save feature tag gcode to queue (write feature tag twice, once where it is in the file and again when writing queue)
             #  currentPrint.infillMovementQueue.append(Movement(originalGcode=cl))
 
@@ -441,8 +448,8 @@ def process(inputFilepath: str, outputFilepath: str):
           currentMovement = Movement(startPos=copy.copy(lastOriginalPosition), endPos=copy.copy(currentPrint.originalPosition), boundingBox=None, originalGcode=cl, feature=currentFeature)
 
           #DEBUG
-          if f.tell() == 83985:
-            0==0
+          #if f.tell() == 107650:
+          #  0==0
 
           if currentFeature and (currentFeature.featureType == INFILL or currentFeature.featureType == TRAVEL):
             if currentMovement.start != currentMovement.end: #G0 or G1

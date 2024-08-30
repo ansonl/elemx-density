@@ -75,6 +75,11 @@ def boundingBoxSplit(movement: Movement, boundingBox: BoundingBox):
   if intersect2 and point_distance(intersect2, movement.start) < point_distance(intersect1, movement.start):
     intersect1, intersect2 = intersect2, intersect1
   
+  #set Z position for intersections (since we don't check for Z intersect point)
+  intersect1.Z = movement.end.Z
+  if intersect2:
+    intersect2.Z = movement.end.Z
+
   originalStartEndEDistance = movement.end.E-movement.start.E
   originalStartEndPointDistance = point_distance(movement.start, movement.end)
 
