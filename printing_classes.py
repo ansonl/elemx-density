@@ -231,14 +231,14 @@ class Movement:
     gcode += f" X{self.start.X:.5f} Y{self.start.Y:.4f} ;Travel to start"
     return gcode
 
-  def travelGcodeToEnd(self):
+  def travelGcodeToEnd(self, addZAxis: bool = False):
     gcode = ''
     gcode += f"{FEATURE_TYPE_WRITE_OUT}{TRAVEL}\n"
     gcode += f"{PULSE_OFF}\n"
     gcode += MOVEMENT_G0
-    gcode += f" X{self.end.X:.5f} Y{self.end.Y:.4f} ;Travel to end"
+    gcode += f" X{self.end.X:.5f} Y{self.end.Y:.4f} {f'Z{self.end.Z}' if addZAxis else ''} ;Travel to end"
     return gcode
-  
+
   # Return G-code for extrude only move. Assume E position is pre-adjusted and final.
   def extrudeOnlyGcode(self, adjustE: bool = False, deltaE: float = None):
     gcode = ''

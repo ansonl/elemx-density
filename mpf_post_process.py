@@ -12,14 +12,14 @@ bbOrigin = Position()
 bbSize = Position()
 
 #test square 25x25x10
-#bbOrigin.X, bbOrigin.Y, bbOrigin.Z = -10, -12, 1.0
-#bbSize.X, bbSize.Y, bbSize.Z = 22, 24, 7
+bbOrigin.X, bbOrigin.Y, bbOrigin.Z = -10, -12, 1.0+INFILL_Z_OFFSET
+bbSize.X, bbSize.Y, bbSize.Z = 22, 24, 7
 
 #long rect 205x20x20
-bbOrigin.X, bbOrigin.Y, bbOrigin.Z = -103, -9.5, 1.0
-bbSize.X, bbSize.Y, bbSize.Z = 206, 19, 15
+#bbOrigin.X, bbOrigin.Y, bbOrigin.Z = -103, -9.5, 1.0
+#bbSize.X, bbSize.Y, bbSize.Z = 206, 19, 15
 
-testBoundingBox = BoundingBox(origin = bbOrigin, size=bbSize, density=0.05)
+testBoundingBox = BoundingBox(origin = bbOrigin, size=bbSize, density=0.1)
 
 def getInfillRequirements(imq: list[Movement], ps: PrintState):
   """Plan infill by splitting infill movements into droplets, calculating infill droplet count needed for target density, and finding supported locations. 
@@ -221,8 +221,8 @@ def outputInfillMovementQueue(imq: list[Movement], ps: PrintState):
   def writeTravelMove(m: Movement):
     nonlocal outputGcode
 
-    # Extrusion move
-    outputGcode += f"{m.travelGcodeToEnd()}\n"
+    # Travel move to end
+    outputGcode += f"{m.travelGcodeToEnd(addZAxis=(m.start.Z != m.end.Z and m.end.Z > 0))}\n"
 
   outputGcode += f"; Start {len(imq)} queued infill moves\n"
 
@@ -345,6 +345,22 @@ def process(inputFilepath: str, outputFilepath: str):
         if f.tell() == 91483:
           0==0
 
+        def endInfillMovementQueue():
+          # reset Z offset to original height
+          moveZDown = None
+          if INFILL_Z_OFFSET > 0:
+            moveZDown = Movement(startPos=copy.copy(currentPrint.originalPosition), endPos=copy.copy(currentPrint.originalPosition), boundingBox=None, originalGcode=None, feature=currentFeature)
+            moveZDown.end.Z -= INFILL_Z_OFFSET
+            moveZDown.end.Z = round(moveZDown.end.Z, 3)
+            currentPrint.infillMovementQueue.append(moveZDown)
+
+          #process all queued infill moves -> output the moves
+          out.write(outputInfillMovementQueue(imq=currentPrint.infillMovementQueue, ps=currentPrint))
+
+          # reset tracked Z position to original height
+          if INFILL_Z_OFFSET > 0:
+            currentPrint.originalPosition.Z = moveZDown.end.Z
+
         # check for feature comment
         featureMatch = re.match(FEATURE_TYPE, cl)
         m1Match = re.match(MACHINE_M1, cl)
@@ -357,15 +373,22 @@ def process(inputFilepath: str, outputFilepath: str):
           currentFeature.start = clsp
           
           if currentFeature.featureType == INFILL or currentFeature.featureType == TRAVEL:
+            # Start new infill movement sequence
             if currentPrint.infillMovementQueue == None:
               currentPrint.infillMovementQueue = []
               currentPrint.infillMovementQueueOriginalStartPosition = copy.copy(currentPrint.originalPosition) #save original position at queue start
+
+              if INFILL_Z_OFFSET > 0:
+                moveZUp = Movement(startPos=currentPrint.infillMovementQueueOriginalStartPosition, endPos=copy.copy(currentPrint.infillMovementQueueOriginalStartPosition), boundingBox=None, originalGcode=None, feature=currentFeature)
+                moveZUp.end.Z += INFILL_Z_OFFSET
+                moveZUp.end.Z = round(moveZUp.end.Z, 3)
+                currentPrint.infillMovementQueue.append(moveZUp)
+                currentPrint.originalPosition.Z = moveZUp.end.Z
             #if currentPrint.infillMovementQueue: # save feature tag gcode to queue (write feature tag twice, once where it is in the file and again when writing queue)
             #  currentPrint.infillMovementQueue.append(Movement(originalGcode=cl))
 
           elif currentPrint.infillMovementQueue: # if non INFILL/TRAVEL feature found
-            #process all queued infill moves
-            out.write(outputInfillMovementQueue(imq=currentPrint.infillMovementQueue, ps=currentPrint))
+            endInfillMovementQueue()
 
           if currentFeature.featureType == LAYER_CHANGE:
             print(f"starting new layer")
@@ -382,7 +405,7 @@ def process(inputFilepath: str, outputFilepath: str):
         elif m1Match: #check for M1 new layer/reset extrusion
           #process all queued infill moves
           if currentPrint.infillMovementQueue:
-            out.write(outputInfillMovementQueue(imq=currentPrint.infillMovementQueue, ps=currentPrint))
+            endInfillMovementQueue()
 
           #Assume M1 will only appear right before plane change
           #During layer change, M1 comes before plane change

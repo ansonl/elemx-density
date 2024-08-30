@@ -48,11 +48,11 @@ LAYERS_COMPLETED_WRITE_OUT = 'LayersCompleted=' #number of layers completed star
 
 # G-code options
 ADD_ELEMX_PREVIEW_MOVE = False #enable for preview
-OUTPUT_RENAME_OUTER_PERIMETER = INNER_PERIMETER #None or new feature type string
 DWELL_BEFORE_EXTRUDE = False #also enable this for preview
 DWELL_AFTER_EXTRUDE = False
+OUTPUT_RENAME_OUTER_PERIMETER = INNER_PERIMETER #None or new feature type string
 
-DEBUG_PREVIEW_ALL_DROPLETS_SUPPORTED = False
+DEBUG_PREVIEW_ALL_DROPLETS_SUPPORTED = False #force all generated droplets to be seen as "supported"
 
 # PRINT SETTINGS
 LAYER_HEIGHT = 0.24 #mm
@@ -67,7 +67,7 @@ DROPLET_RASTER_COLLISION_SEARCH_KERNEL_SIZE = 5
 DROPLET_RASTER_COLLISION_SEARCH_CORNER_RADIUS = 1
 
 DROPLET_DWELL = 0.2 #s
-DROPLET_EXTRUSION_MULTIPLIER = 1 # multiply by this value
+DROPLET_EXTRUSION_MULTIPLIER = .75 # multiply by this value
 
 # INFILL INSET
 MINIMUM_INSET_DROPLET_WIDTH = 2.5 #inset that drops avoid all the time. This includes the last layers of a bounding box where the normal inset is scaled towards 0.
@@ -75,9 +75,13 @@ MINIMUM_BOUNDARY_BOX_INSET = DROPLET_WIDTH*MINIMUM_INSET_DROPLET_WIDTH #mm
 INSET_DROPLET_WIDTH = 3 #this is in addition to minimum inset!
 BOUNDARY_BOX_INSET = DROPLET_WIDTH*INSET_DROPLET_WIDTH #mm
 
+# INFILL Z offset
+# raise Z by this amount when doing any infill feature moves
+INFILL_Z_OFFSET = 20 #mm
+
 # Input/Output files
-#MPF_INPUT_FILE = 'test-square-25x25x10.mpf'
-MPF_INPUT_FILE = 'long-rect-piece-205x20x20.mpf'
+MPF_INPUT_FILE = 'test-square-25x25x10.mpf'
+#MPF_INPUT_FILE = 'long-rect-piece-205x20x20.mpf'
 
 INSET_FILENAME = f'{INSET_DROPLET_WIDTH+MINIMUM_INSET_DROPLET_WIDTH:.2f}'
 EXTRUSION_MULTIPLIER_FILENAME = f'{DROPLET_EXTRUSION_MULTIPLIER}'
