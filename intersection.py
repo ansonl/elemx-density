@@ -32,25 +32,29 @@ def point_in_box(p1: Position, boundingBox: BoundingBox):
 # check if movement is in bounding box and split movement by intersections
 # return array of new movements or false if no intersection
 def boundingBoxSplit(movement: Movement, boundingBox: BoundingBox):
+  currentBoundingBox = copy.copy(boundingBox) #only use this for intersection checking
+  currentBoundingBox.origin = boundingBox.currentBoundingBoxOriginAtHeight(movement.end.Z)
+  currentBoundingBox.size = boundingBox.currentBoundingBoxSizeAtHeight(movement.end.Z)
+
   newMovements: list[Movement] = []
 
   #intersect Left Right Top Bottom of bounding box
   intersectBBL, intersectBBR, intersectBBT, intersectBBB = False, False, False, False
 
   #currently this only checks if the movement end is in the Z range of the boundingbox
-  if movement.end.Z >= boundingBox.origin.Z and movement.end.Z <= boundingBox.origin.Z + boundingBox.size.Z:
+  if movement.end.Z >= currentBoundingBox.origin.Z and movement.end.Z <= currentBoundingBox.origin.Z + currentBoundingBox.size.Z:
 
     #check if entire movement start and end are in bounding box
-    if point_in_box(movement.start, boundingBox) and point_in_box(movement.end, boundingBox):
+    if point_in_box(movement.start, currentBoundingBox) and point_in_box(movement.end, currentBoundingBox):
       movementWithBoundingBox = copy.copy(movement)
-      movementWithBoundingBox.boundingBox = boundingBox
+      movementWithBoundingBox.boundingBox = currentBoundingBox
       newMovements.append(movementWithBoundingBox)
       return newMovements
 
-    intersectBBL = line_intersection([movement.start.X,movement.start.Y], [movement.end.X,movement.end.Y], [boundingBox.origin.X, boundingBox.origin.Y], [boundingBox.origin.X, boundingBox.origin.Y + boundingBox.size.Y])
-    intersectBBR = line_intersection([movement.start.X,movement.start.Y], [movement.end.X,movement.end.Y], [boundingBox.origin.X + boundingBox.size.X, boundingBox.origin.Y], [boundingBox.origin.X + boundingBox.size.X, boundingBox.origin.Y + boundingBox.size.Y])
-    intersectBBT = line_intersection([movement.start.X,movement.start.Y], [movement.end.X,movement.end.Y], [boundingBox.origin.X, boundingBox.origin.Y + boundingBox.size.Y], [boundingBox.origin.X + boundingBox.size.X, boundingBox.origin.Y + boundingBox.size.Y])
-    intersectBBB = line_intersection([movement.start.X,movement.start.Y], [movement.end.X,movement.end.Y], [boundingBox.origin.X, boundingBox.origin.Y], [boundingBox.origin.X + boundingBox.size.X, boundingBox.origin.Y])
+    intersectBBL = line_intersection([movement.start.X,movement.start.Y], [movement.end.X,movement.end.Y], [currentBoundingBox.origin.X, currentBoundingBox.origin.Y], [currentBoundingBox.origin.X, currentBoundingBox.origin.Y + currentBoundingBox.size.Y])
+    intersectBBR = line_intersection([movement.start.X,movement.start.Y], [movement.end.X,movement.end.Y], [currentBoundingBox.origin.X + currentBoundingBox.size.X, currentBoundingBox.origin.Y], [currentBoundingBox.origin.X + currentBoundingBox.size.X, currentBoundingBox.origin.Y + currentBoundingBox.size.Y])
+    intersectBBT = line_intersection([movement.start.X,movement.start.Y], [movement.end.X,movement.end.Y], [currentBoundingBox.origin.X, currentBoundingBox.origin.Y + currentBoundingBox.size.Y], [currentBoundingBox.origin.X + currentBoundingBox.size.X, currentBoundingBox.origin.Y + currentBoundingBox.size.Y])
+    intersectBBB = line_intersection([movement.start.X,movement.start.Y], [movement.end.X,movement.end.Y], [currentBoundingBox.origin.X, currentBoundingBox.origin.Y], [currentBoundingBox.origin.X + currentBoundingBox.size.X, currentBoundingBox.origin.Y])
 
   intersect1: Position|False = False
   intersect2: Position|False = False

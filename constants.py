@@ -47,8 +47,8 @@ LAYERS_COMPLETED_WRITE_OUT = 'LayersCompleted=' #number of layers completed star
 # User config settings
 
 # G-code options
-ADD_ELEMX_PREVIEW_MOVE = False #enable for preview
-DWELL_BEFORE_EXTRUDE = False #also enable this for preview
+ADD_ELEMX_PREVIEW_MOVE = True #enable for preview
+DWELL_BEFORE_EXTRUDE = True #also enable this for preview
 DWELL_AFTER_EXTRUDE = False
 OUTPUT_RENAME_OUTER_PERIMETER = INNER_PERIMETER #None or new feature type string
 
@@ -67,17 +67,21 @@ DROPLET_RASTER_COLLISION_SEARCH_KERNEL_SIZE = 5
 DROPLET_RASTER_COLLISION_SEARCH_CORNER_RADIUS = 1
 
 DROPLET_DWELL = 0.2 #s
-DROPLET_EXTRUSION_MULTIPLIER = 0.5 # multiply by this value
+DROPLET_EXTRUSION_MULTIPLIER = 0.75 # multiply by this value
 
 # INFILL INSET
 MINIMUM_INSET_DROPLET_WIDTH = 2.5 #inset that drops avoid all the time. This includes the last layers of a bounding box where the normal inset is scaled towards 0.
 MINIMUM_BOUNDARY_BOX_INSET = DROPLET_WIDTH*MINIMUM_INSET_DROPLET_WIDTH #mm
-INSET_DROPLET_WIDTH = 3 #this is in addition to minimum inset!
+INSET_DROPLET_WIDTH = 0 #3 #this is in addition to minimum inset!
 BOUNDARY_BOX_INSET = DROPLET_WIDTH*INSET_DROPLET_WIDTH #mm
 
 # INFILL Z offset
 # raise Z by this amount when doing any infill feature moves that are on a layer with Z intersection bounding box
 INFILL_Z_OFFSET = 20 #mm
+
+# INFILL BoundingBox Sides Gradual fill in
+INFILL_BB_SIDES_FILL_IN_DROPLET_OVERLAP_PERC = 0.5 #%
+
 
 # Input/Output files
 MPF_INPUT_FILE = 'test-square-25x25x10.mpf'
@@ -86,5 +90,5 @@ MPF_INPUT_FILE = 'test-square-25x25x10.mpf'
 INSET_FILENAME = f'{INSET_DROPLET_WIDTH+MINIMUM_INSET_DROPLET_WIDTH:.2f}'
 EXTRUSION_MULTIPLIER_FILENAME = f'{DROPLET_EXTRUSION_MULTIPLIER}'
 
-MPF_OUTPUT_FILE = f"long-rect-{EXTRUSION_MULTIPLIER_FILENAME.replace('.','-')}mul-{INSET_FILENAME.replace('.','-')}inset-s{int(DROPLET_RASTER_SUPPORTED_SEARCH_KERNEL_SIZE)}k{int(DROPLET_RASTER_SUPPORTED_SEARCH_CORNER_RADIUS)}r-c{int(DROPLET_RASTER_COLLISION_SEARCH_KERNEL_SIZE)}k{int(DROPLET_RASTER_COLLISION_SEARCH_CORNER_RADIUS)}r.mpf"
-GCODE_OUTPUT_FILE = 'long-rect-output.gcode'
+MPF_OUTPUT_FILE = f"test-square-25x25x10-{EXTRUSION_MULTIPLIER_FILENAME.replace('.','-')}mul-{INSET_FILENAME.replace('.','-')}inset-s{int(DROPLET_RASTER_SUPPORTED_SEARCH_KERNEL_SIZE)}k{int(DROPLET_RASTER_SUPPORTED_SEARCH_CORNER_RADIUS)}r-c{int(DROPLET_RASTER_COLLISION_SEARCH_KERNEL_SIZE)}k{int(DROPLET_RASTER_COLLISION_SEARCH_CORNER_RADIUS)}r.mpf"
+GCODE_OUTPUT_FILE = 'test-square-25x25x10-output.gcode'

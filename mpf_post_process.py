@@ -12,8 +12,8 @@ bbOrigin = Position()
 bbSize = Position()
 
 #test square 25x25x10
-bbOrigin.X, bbOrigin.Y, bbOrigin.Z = -12, -12, 1.0
-bbSize.X, bbSize.Y, bbSize.Z = 24, 24, 7
+bbOrigin.X, bbOrigin.Y, bbOrigin.Z = -12, -12, 1.0 #Lower left
+bbSize.X, bbSize.Y, bbSize.Z = 24, 24, 7 #Upper right
 
 #long rect 205x20x20
 #bbOrigin.X, bbOrigin.Y, bbOrigin.Z = -103, -9.5, 1.0
@@ -136,8 +136,12 @@ def placeInfill(imq: list[Movement], ps: PrintState) -> int:
     if m.supportedPositionMovements:
       m.supportedPositionMovements.sort(key=lambda x:x[0])
       m.dropletMovements = [spm[1] for spm in m.supportedPositionMovements]
+      m.supportedPositionMovements = None # remove reference to previously sorted array
 
   return totalDropletsPlaced
+
+def reorderMovementsByZOffset(imq: list[Movement]):
+  imq.sort(reverse=True, key=lambda x:x.boundingBox.offsetZ if x.boundingBox else -1)
 
 # infill
 def processInfillMovementQueue(imq: list[Movement], ps: PrintState):
@@ -145,6 +149,10 @@ def processInfillMovementQueue(imq: list[Movement], ps: PrintState):
   ps.infillModifiedDropletsNeededForDensity = 0
   ps.infillModifiedDropletsSupportedAvailable = 0
 
+  testCurrentBBOrigin = testBoundingBox.currentBoundingBoxOriginAtHeight(height=ps.layerHeight)
+  testCurrentBBSize = testBoundingBox.currentBoundingBoxSizeAtHeight(height=ps.layerHeight)
+
+  print(f"current test bb on layer height {ps.layerHeight} origin {testCurrentBBOrigin.X} {testCurrentBBOrigin.Y} {testCurrentBBOrigin.Z} size {testCurrentBBSize.X} {testCurrentBBSize.Y} {testCurrentBBSize.Z}")
   print(f"getting infill requirements on layer height {ps.layerHeight}")
   getInfillRequirements(imq, ps)
   print(f"infill on layer height {ps.layerHeight} requires {ps.infillModifiedDropletsNeededForDensity}/{ps.infillModifiedDropletsOriginal} droplets for density. Found {ps.infillModifiedDropletsSupportedAvailable} available support locations.")
@@ -152,8 +160,13 @@ def processInfillMovementQueue(imq: list[Movement], ps: PrintState):
   totalDropletsPlaced = placeInfill(imq=imq, ps=ps)
   print(f"infill on layer height {ps.layerHeight} placed {totalDropletsPlaced} droplets and still requires {ps.infillModifiedDropletsNeededForDensity} droplets")
 
+  print(f"reordering movements by Z offset") 
+  reorderMovementsByZOffset(imq=imq)
+
 def outputInfillMovementQueue(imq: list[Movement], ps: PrintState):
   outputGcode = ''
+
+  queuedTravelMovement: Movement = None
 
   processInfillMovementQueue(imq=imq, ps=ps)
 
@@ -182,13 +195,13 @@ def outputInfillMovementQueue(imq: list[Movement], ps: PrintState):
     # Add move that is close to the final droplet position but not the same
     # Turn off for production print, only use for preview
     if ADD_ELEMX_PREVIEW_MOVE:
-      fakeMove = Movement(endPos=copy.copy(m.end))
+      fakeMove = Movement(endPos=copy.copy(m.end), boundingBox=m.boundingBox)
       fakeMove.end.X += 0.00001
       outputGcode += f"{FAKE_MOVE}\n"
-      outputGcode += f"{fakeMove.travelGcodeToEnd()}\n"
+      outputGcode += f"{fakeMove.travelGcodeToEnd(addZAxis=True)}\n"
 
     # Move to actual droplet position
-    outputGcode += f"{m.travelGcodeToEnd()}\n"
+    outputGcode += f"{m.travelGcodeToEnd(addZAxis=True)}\n"
 
     # Dwell
     if DWELL_BEFORE_EXTRUDE:
@@ -228,30 +241,59 @@ def outputInfillMovementQueue(imq: list[Movement], ps: PrintState):
     # Travel move to end
     outputGcode += f"{m.travelGcodeToEnd(addZAxis=(m.start.Z != m.end.Z and m.end.Z > 0))}\n"
 
+  # G0 move is not needed if the next extrusion move is dropet because we already add a travel move in writeDroplet() to setup the start position
+  #We don't know if the next extrusion move is droplet, so we add travel moves to queue until we find next extrusion move
+  def addTravelMoveToQueue(m: Movement):
+    nonlocal queuedTravelMovement
+    queuedTravelMovement = m # keep queue of 1 movement since we only need the last travel
+
+    '''
+    nonlocal travelMovementQueue
+    if travelMovementQueue == None:
+        travelMovementQueue = [m]
+    else:
+      travelMovementQueue.append(m)
+    '''
+
   outputGcode += f"; Start {len(imq)} queued infill moves\n"
 
   for m in imq:
     if m.start == None: #output original misc gcode
       outputGcode += f"{m.originalGcode}"
 
-    elif m.boundingBox: # write droplets
-      if m.dropletMovements:
+    elif m.boundingBox: # In bounding box so write droplets
+      if m.dropletMovements: # write droplet movements
+
+        # Reset travel move queue since droplet movement does not need to be setup with last travel. We add our own travel before extrude.
+        queuedTravelMovement = None
+
         outputGcode += f"; Interpolated movement to {len(m.dropletMovements)} droplets\n"
         for d in m.dropletMovements:
           adjustE(m=d)
           writeDroplet(m=d)
-      else:
+      else: # no droplets placed so jump to end pos for next move
         outputGcode += f"; Move with bounding box had no droplets placed so add travel move to the end. Original move is {m.originalGcode}\n"
-        writeTravelMove(m=m)
+        addTravelMoveToQueue(m=m)
     elif m.start.E != m.end.E: # write G1 move
+      # Write queued travel move if needed
+      if queuedTravelMovement:
+        writeTravelMove(m=queuedTravelMovement)
+        queuedTravelMovement = None
+
       outputGcode += f"; Adjusted extrusion move\n"
       adjustE(m=m)
       writeAdjustedExtrusionMove(m=m)
     elif m.start != m.end: # write G0 move
+      addTravelMoveToQueue(m=m)
+
       #outputGcode += f"{m.originalGcode}"
-      writeTravelMove(m=m)
+      #writeTravelMove(m=m)
     else: #unknown
       0==1
+
+  # Write travel move iff we had a queued travel movement at the end. 
+  if queuedTravelMovement:
+    writeTravelMove(m=queuedTravelMovement)
 
   ps.deltaE += ps.infillMovementQueueOriginalStartPosition.E - ps.originalPosition.E
 
@@ -353,6 +395,8 @@ def process(inputFilepath: str, outputFilepath: str):
           currentPrint.infillMovementQueue = []
           currentPrint.infillMovementQueueOriginalStartPosition = copy.copy(currentPrint.originalPosition) #save original position at queue start
 
+          '''
+          # insert movement to only change Z
           if INFILL_Z_OFFSET > 0 and positionZIntersectsBoundingBoxZ(currentPrint.originalPosition, bb=testBoundingBox):
             moveZUp = Movement(startPos=currentPrint.infillMovementQueueOriginalStartPosition, endPos=copy.copy(currentPrint.infillMovementQueueOriginalStartPosition), boundingBox=None, originalGcode=None, feature=currentFeature)
             moveZUp.end.Z += INFILL_Z_OFFSET
@@ -360,21 +404,27 @@ def process(inputFilepath: str, outputFilepath: str):
             currentPrint.infillMovementQueue.append(moveZUp)
             currentPrint.offsetZ = INFILL_Z_OFFSET
             #currentPrint.originalPosition.Z = moveZUp.end.Z
+          '''
 
         def endInfillMovementQueue():
+          '''
           # reset Z offset
+          # insert movement to only change Z
           moveZDown = None
           if currentPrint.offsetZ > 0:
             moveZDown = Movement(startPos=copy.copy(currentPrint.originalPosition), endPos=copy.copy(currentPrint.originalPosition), boundingBox=None, originalGcode=None, feature=currentFeature)
             moveZDown.start.Z += currentPrint.offsetZ # Set real Z position for start so that we know that Z has changed when creating Gcode
             currentPrint.infillMovementQueue.append(moveZDown)
-
+          '''
+            
           #process all queued infill moves -> output the moves
           out.write(outputInfillMovementQueue(imq=currentPrint.infillMovementQueue, ps=currentPrint))
 
+          '''
           # reset Z offset
           if currentPrint.offsetZ > 0:
             currentPrint.offsetZ = 0
+          '''
 
         # check for feature comment
         featureMatch = re.match(FEATURE_TYPE, cl)
@@ -428,10 +478,6 @@ def process(inputFilepath: str, outputFilepath: str):
           currentFeature.featureType = UNKNOWN
           currentFeature.start = clsp
           currentPrint.features.append(currentFeature)
-
-          
-
-          
 
         else: #no new feature tag found
           #save copy of last original gcode position before reading current line gcode position
@@ -504,4 +550,4 @@ process(inputFilepath=MPF_INPUT_FILE, outputFilepath=MPF_OUTPUT_FILE)
 #process(inputFilepath='test-square-10-layer.mpf', outputFilepath='test-square-output.gcode')
 
 # copy and change extesion to .gcode for drag and drop preview in gcode previewer
-#shutil.copyfile('test-square-output-2.mpf', GCODE_OUTPUT_FILE)
+shutil.copyfile(MPF_OUTPUT_FILE, GCODE_OUTPUT_FILE)

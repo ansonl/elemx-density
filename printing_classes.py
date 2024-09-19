@@ -1,4 +1,4 @@
-import enum, math, gc
+import enum, math, gc, copy
 from constants import *
 
 class StatusQueueItem:
@@ -33,9 +33,15 @@ class BoundingBox:
     self.size = size
     self.density: float = density
     self.targetDensity: float = 1
+
+    self.offsetZ: float = INFILL_Z_OFFSET
+
+    self.sidesFillInDropletOverlapPerc = INFILL_BB_SIDES_FILL_IN_DROPLET_OVERLAP_PERC
+
     #self.dropletOverlap = DROPLET_OVERLAP_PERC #percentage of droplet width
     self.dropletRasterResolution = DROPLET_RASTER_RESOLUTION_PERC
     self.dropletRaster: list[None|list[list[int]]] = None #[last|current][x][y]
+
 
   def initializeDropletRasterLayer(self):
     return [[0 for _ in range(0, round(self.size.Y/(DROPLET_WIDTH*self.dropletRasterResolution)) + 1)] for _ in range(0, round(self.size.X/(DROPLET_WIDTH*self.dropletRasterResolution)) + 1)]
@@ -56,9 +62,6 @@ class BoundingBox:
   def lastLayerHeight(self) -> float:
     return self.origin.Z+self.size.Z
   
-  def lastStartingDensityLayerHeight(self) -> float:
-    return self.lastLayerHeight()-self.numLayersToTargetDensity()*LAYER_HEIGHT
-
   def numLayersToTargetDensity(self) -> float:
     """
     Return number of layers needed to stack to together to get to the target density (going up). Start density is first layer. Target density is last layer.
@@ -67,6 +70,9 @@ class BoundingBox:
     :rtype: float
     """    
     return self.targetDensity / self.density
+  
+  def lastStartingDensityLayerHeight(self) -> float:
+    return self.lastLayerHeight()-self.numLayersToTargetDensity()*LAYER_HEIGHT
   
   def percentThroughRampUpDensityZone(self, layerHeight: float, rampUpDistanceMultiplier: float = 1) -> float:
     lastLayerHeight = self.lastLayerHeight()
@@ -94,6 +100,42 @@ class BoundingBox:
     else: 
       return self.density + self.percentThroughRampUpDensityZone(layerHeight) * (self.targetDensity-self.density)
 
+  def lastFullBoundingBoxSizeHeight(self) -> float:
+    smallerXYSize = min(self.size.X, self.size.Y)
+    
+    oneSideFillInDist = smallerXYSize / 2
+
+    fillInLayers = oneSideFillInDist / (DROPLET_WIDTH*INFILL_BB_SIDES_FILL_IN_DROPLET_OVERLAP_PERC)
+
+    return self.lastLayerHeight() - fillInLayers * LAYER_HEIGHT 
+
+  def percentThroughSideFillInZone(self, height: float):
+    lastLayerHeight = self.lastLayerHeight()
+    lastFullBoundingBoxSizeHeight = self.lastFullBoundingBoxSizeHeight()
+
+    return (height-lastFullBoundingBoxSizeHeight)/(lastLayerHeight-lastFullBoundingBoxSizeHeight)
+
+  def currentBoundingBoxOriginAtHeight(self, height: float) -> Position:
+    lastFullBoundingBoxSizeHeight = self.lastFullBoundingBoxSizeHeight()
+    
+    if height <= lastFullBoundingBoxSizeHeight:
+      return self.origin
+    else:
+      newBbOrigin = copy.copy(self.origin)
+      newBbOrigin.X += (self.size.X / 2) * min(1,self.percentThroughSideFillInZone(height=height))
+      newBbOrigin.Y += (self.size.Y / 2) * min(1,self.percentThroughSideFillInZone(height=height))
+      return newBbOrigin
+
+  def currentBoundingBoxSizeAtHeight(self, height: float) -> Position:
+    lastFullBoundingBoxSizeHeight = self.lastFullBoundingBoxSizeHeight()
+    
+    if height <= lastFullBoundingBoxSizeHeight:
+      return self.size
+    else:
+      newBbSize = copy.copy(self.size)
+      newBbSize.X -= (self.size.X) * min(1,self.percentThroughSideFillInZone(height=height))
+      newBbSize.Y -= (self.size.Y) * min(1,self.percentThroughSideFillInZone(height=height))
+      return newBbSize
 
 # State of current Print FILE
 class PrintState:
@@ -121,7 +163,8 @@ class PrintState:
     # E delta
     self.deltaE: float = 0 # how much we have deviated from the original E position
     # Z offset
-    self.offsetZ: float = 0 # how much the Z axis is current offset by
+    # no longer used because Z raise is now a property of Position
+    #self.offsetZ: float = 0 # how much the Z axis is current offset by
 
 
     # Prime tower / Toolchange values for current layer
@@ -210,6 +253,16 @@ class Movement:
     return (self.start.X == self.end.X) and (self.start.Y == self.end.Y)
   
   def adjustE(self, startE: float):
+    """
+    Set the start E position of this movement to the passed startE value. 
+    Increment start E position by relative E movement to get end E.
+    Set the end E position of this movement.
+
+    :param startE: Starting E value
+    :type startE: float
+    :return: Number of layers to stack to get target density.
+    :rtype: float
+    """   
     # Get relative E movement
     relativeE = self.end.E - self.start.E 
 
@@ -231,7 +284,7 @@ class Movement:
     gcode += f"{FEATURE_TYPE_WRITE_OUT}{TRAVEL}\n"
     gcode += f"{PULSE_OFF}\n"
     gcode += MOVEMENT_G0
-    gcode += f" X{self.start.X:.5f} Y{self.start.Y:.4f} ;Travel to start"
+    gcode += f" X{self.start.X:.5f} Y{self.start.Y:.4f} Z{self.start.Z} ;Travel to start"
     return gcode
 
   def travelGcodeToEnd(self, addZAxis: bool = False):
@@ -239,7 +292,7 @@ class Movement:
     gcode += f"{FEATURE_TYPE_WRITE_OUT}{TRAVEL}\n"
     gcode += f"{PULSE_OFF}\n"
     gcode += MOVEMENT_G0
-    gcode += f" X{self.end.X:.5f} Y{self.end.Y:.4f} {f'Z{self.end.Z}' if addZAxis else ''} ;Travel to end"
+    gcode += f" X{self.end.X:.5f} Y{self.end.Y:.4f} {f'Z{(self.end.Z + self.boundingBox.offsetZ if self.boundingBox else 0):.2f}' if addZAxis else ''} ;Travel to end"
     return gcode
 
   # Return G-code for extrude only move. Assume E position is pre-adjusted and final.
@@ -257,5 +310,6 @@ class Movement:
     gcode += f"{FEATURE_TYPE_WRITE_OUT}{INFILL}\n"
     gcode += f"{PULSE_ON}\n"
     gcode += MOVEMENT_G1
-    gcode += f" X{self.end.X:.5f} Y{self.end.Y:.4f} E{(self.end.E + deltaE if adjustE else self.end.E):.5f} ; EInc={self.end.E-self.start.E}"
+    gcode += f" X{self.end.X:.5f} Y{self.end.Y:.4f} Z{(self.end.Z + self.boundingBox.offsetZ if self.boundingBox else 0):.2f}"
+    gcode += f" E{(self.end.E + deltaE if adjustE else self.end.E):.5f} ; EInc={self.end.E-self.start.E}"
     return gcode
