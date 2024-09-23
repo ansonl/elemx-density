@@ -105,7 +105,7 @@ class BoundingBox:
     
     oneSideFillInDist = smallerXYSize / 2
 
-    fillInLayers = oneSideFillInDist / (DROPLET_WIDTH*INFILL_BB_SIDES_FILL_IN_DROPLET_OVERLAP_PERC)
+    fillInLayers = oneSideFillInDist / (DROPLET_WIDTH*(1-INFILL_BB_SIDES_FILL_IN_DROPLET_OVERLAP_PERC))
 
     return self.lastLayerHeight() - fillInLayers * LAYER_HEIGHT 
 
