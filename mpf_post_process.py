@@ -507,7 +507,19 @@ def process(inputFilepath: str, outputFilepath: str):
 
                 if boundingBoxSplitMovements:
                   newMovements = boundingBoxSplitMovements
-                    
+
+                  
+                  # Swap start/end points of trailing movement if that segment is not in bounding box
+                  if len(newMovements) > 1 and FLIP_MOVEMENT_TO_MOVE_TOWARDS_INTERSECTING_BOUNDING_BOX:
+                    if newMovements[-1].boundingBox == None:
+                      newStartXYZ = copy.copy(newMovements[-1].end)
+                      newMovements[-1].end.X = newMovements[-1].start.X
+                      newMovements[-1].end.Y = newMovements[-1].start.Y
+                      newMovements[-1].end.Z = newMovements[-1].start.Z
+                      newMovements[-1].start.X = newStartXYZ.X
+                      newMovements[-1].start.Y = newStartXYZ.Y
+                      newMovements[-1].start.Z = newStartXYZ.Z
+                  
                 for nm in newMovements:
                   nm.originalGcode = cl
                   #process infill movements in batch once another feature type is found

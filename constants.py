@@ -61,8 +61,8 @@ LAYER_HEIGHT = 0.24 #mm
 DROPLET_WIDTH = 0.510 #mm
 #DROPLET_OVERLAP_PERC = 0.5 #%
 DROPLET_RASTER_RESOLUTION_PERC = 0.25 #% of droplet width
-DROPLET_RASTER_SUPPORTED_SEARCH_KERNEL_SIZE = 5 # in raster index widths (must be odd numbers)
-DROPLET_RASTER_SUPPORTED_SEARCH_CORNER_RADIUS = 1 # in raster index widths
+DROPLET_RASTER_SUPPORTED_SEARCH_KERNEL_SIZE = 3 # in raster index widths (must be odd numbers)
+DROPLET_RASTER_SUPPORTED_SEARCH_CORNER_RADIUS = 0 # in raster index widths
 DROPLET_RASTER_COLLISION_SEARCH_KERNEL_SIZE = 5
 DROPLET_RASTER_COLLISION_SEARCH_CORNER_RADIUS = 1
 
@@ -82,6 +82,8 @@ INFILL_Z_OFFSET = 20 #mm
 # INFILL BoundingBox Sides Gradual fill in
 INFILL_BB_SIDES_FILL_IN_DROPLET_OVERLAP_PERC = 0.5 #%
 
+# Flip printing movements intersected by boundingbox so that the movement always moves towards the bounding box
+FLIP_MOVEMENT_TO_MOVE_TOWARDS_INTERSECTING_BOUNDING_BOX = True
 
 # Input/Output files
 MPF_INPUT_FILE = 'test-square-25x25x10.mpf'
