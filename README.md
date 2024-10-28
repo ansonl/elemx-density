@@ -4,7 +4,7 @@ This script will replace bounded infill areas in MPF/G-code files with single lo
 
 ![elemx builder preview](assets/elemx-builder-preview-droplets-animation.gif)
 
-https://raw.githubusercontent.com/ansonl/elemx-density/refs/heads/master/assets/prusa-gcode-final-feature-preview.mp4
+https://github.com/user-attachments/assets/bf7156da-55dd-4c08-b22b-8c746d63a744
 
 https://github.com/user-attachments/assets/c3922f39-fb12-4f88-98dd-3f5aca589cf5
 
