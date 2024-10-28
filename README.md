@@ -6,7 +6,7 @@ This script will replace bounded infill areas in MPF/G-code files with single lo
 
 https://raw.githubusercontent.com/ansonl/elemx-density/refs/heads/master/assets/prusa-gcode-final-feature-preview.mp4
 
-https://raw.githubusercontent.com/ansonl/elemx-density/refs/heads/master/assets/elemx-pyramid-z-offset-flip-direction-features.mp4
+https://github.com/user-attachments/assets/c3922f39-fb12-4f88-98dd-3f5aca589cf5
 
 
 ## Features
