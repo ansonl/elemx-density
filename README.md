@@ -72,4 +72,8 @@ The input and output files can be set at the bottom of `mpf_post_process.py` by 
 process(inputFilepath='test-square.mpf', outputFilepath='test-square-output.mpf')
 ```
 
+## Notes
+
+This code is a fork of my [3D Map Feature Modifier](https://github.com/ansonl/mfm) post processor which is made for FDM printers.
+
 The user assumes all risk and liability when running code and output data in this repository.
